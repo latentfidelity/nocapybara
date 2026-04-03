@@ -198,8 +198,9 @@ ipcMain.handle('gemini-request', async (event, prompt, useGrounding = false, mod
         const data = await response.json();
         if (data.candidates && data.candidates[0]) {
             const candidate = data.candidates[0];
-            const text = candidate.content.parts[0].text;
+            const text = candidate?.content?.parts?.[0]?.text || '';
             const groundingMeta = candidate.groundingMetadata;
+            if (!text) return { error: candidate?.finishReason || 'Empty response from model' };
             return { text, groundingMeta };
         }
         return { error: data.error?.message || 'No response from Gemini' };

@@ -1216,6 +1216,30 @@ Thought: "${text.replace(/"/g, '\\"')}"`;
         let headerParsed = false;
         let contentStartIdx = -1;
 
+        // Open write modal
+        const writeOverlay = document.createElement('div');
+        writeOverlay.className = 'write-modal-overlay';
+        writeOverlay.id = 'write-modal-overlay';
+        writeOverlay.innerHTML = `
+            <div class="write-modal">
+                <div class="write-modal-header">
+                    <h3>✦ EXPANDING THOUGHT</h3>
+                    <button class="write-modal-close" id="write-modal-close">✕</button>
+                </div>
+                <div class="write-modal-body" id="write-modal-body"></div>
+                <div class="write-modal-status" id="write-modal-status">
+                    <span class="thinking-dots">Generating</span>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(writeOverlay);
+
+        const writeBody = document.getElementById('write-modal-body');
+        const writeStatus = document.getElementById('write-modal-status');
+        document.getElementById('write-modal-close').addEventListener('click', () => {
+            writeOverlay.remove();
+        });
+
         window.electronAPI.removeStreamListeners();
 
         window.electronAPI.onStreamChunk((chunk) => {
@@ -1284,7 +1308,7 @@ Thought: "${text.replace(/"/g, '\\"')}"`;
                 }
             }
 
-            // Stream content into textarea
+            // Stream content into textarea and write modal
             if (headerParsed) {
                 const contentSoFar = fullResponse.slice(contentStartIdx).trimStart();
                 node.content = text + '\n\n— — —\n\n' + contentSoFar;
@@ -1294,6 +1318,11 @@ Thought: "${text.replace(/"/g, '\\"')}"`;
                         el.value = node.content;
                         el.scrollTop = el.scrollHeight;
                     }
+                }
+                // Update write modal
+                if (writeBody) {
+                    writeBody.textContent = contentSoFar;
+                    writeBody.scrollTop = writeBody.scrollHeight;
                 }
             }
         });
@@ -1305,6 +1334,8 @@ Thought: "${text.replace(/"/g, '\\"')}"`;
             this._renderPagesTree();
             this._status('[THOUGHT EXPANDED]', 'success');
             window.electronAPI.removeStreamListeners();
+            // Update write modal status
+            if (writeStatus) writeStatus.textContent = '✓ COMPLETE — Click ✕ to close';
         });
 
         window.electronAPI.onStreamError((err) => {
@@ -1312,6 +1343,7 @@ Thought: "${text.replace(/"/g, '\\"')}"`;
             this.renderer.markDirty();
             this._status('[AI ERROR: ' + err + ']', 'error');
             window.electronAPI.removeStreamListeners();
+            if (writeStatus) writeStatus.textContent = '✗ ERROR: ' + err;
         });
 
         window.electronAPI.geminiStream(prompt, true, this.selectedModel);
@@ -1884,7 +1916,7 @@ Write concise, substantive paragraphs. Plain text only, no markdown headers. Be 
             for (let round = 1; round <= rounds; round++) {
                 // Model A
                 roundIndicator.textContent = `ROUND ${round}/${rounds}`;
-                statusEl.textContent = `Model A thinking...`;
+                statusEl.innerHTML = `<span class="thinking-dots">Model A thinking</span>`;
 
                 const promptA = this._buildDebatePrompt(topic, history, 'A', round, rounds);
                 const resultA = await window.electronAPI.geminiRequest(promptA, false, this.debateModelA);
@@ -1903,7 +1935,7 @@ Write concise, substantive paragraphs. Plain text only, no markdown headers. Be 
                 this.renderer.markDirty();
 
                 // Model B
-                statusEl.textContent = `Model B thinking...`;
+                statusEl.innerHTML = `<span class="thinking-dots">Model B thinking</span>`;
 
                 const promptB = this._buildDebatePrompt(topic, history, 'B', round, rounds);
                 const resultB = await window.electronAPI.geminiRequest(promptB, false, this.debateModelB);
@@ -1924,7 +1956,7 @@ Write concise, substantive paragraphs. Plain text only, no markdown headers. Be 
             }
 
             // RESOLUTION
-            statusEl.textContent = 'Synthesizing resolution...';
+            statusEl.innerHTML = '<span class="thinking-dots">Synthesizing resolution</span>';
             roundIndicator.textContent = 'RESOLUTION';
 
             const resolutionPrompt = this._buildResolutionPrompt(topic, history);
