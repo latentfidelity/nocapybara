@@ -1,7 +1,7 @@
 {
-  "name": "reflect",
+  "name": "nocapybara",
   "version": "1.0.0",
-  "description": "Reflect — World Model & Logic Organizer",
+  "description": "NoCapybara — World Model & Logic Organizer",
   "main": "main.js",
   "scripts": {
     "start": "electron .",

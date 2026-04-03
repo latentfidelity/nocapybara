@@ -1,5 +1,5 @@
 // ============================================
-// REFLECT — Interaction & UI Controller
+// NOCAPYBARA — Interaction & UI Controller
 // ============================================
 
 // Lightweight markdown → HTML renderer
@@ -72,14 +72,14 @@ class ReflectApp {
         this.contentHistory = new Map();
 
         // Starred node IDs
-        this.starredNodes = new Set(JSON.parse(localStorage.getItem('reflect-starred') || '[]'));
+        this.starredNodes = new Set(JSON.parse(localStorage.getItem('nocapybara-starred') || '[]'));
 
         // Graph type filter
         this.typeFilter = new Set(['idea', 'topic', 'note', 'rule', 'event', 'detail']);
         this.renderer.typeFilter = this.typeFilter;
 
         // Options (persisted)
-        const savedOpts = JSON.parse(localStorage.getItem('reflect-options') || '{}');
+        const savedOpts = JSON.parse(localStorage.getItem('nocapybara-options') || '{}');
         this.options = {
             grid: savedOpts.grid === true,
             labels: savedOpts.labels !== false,
@@ -698,7 +698,7 @@ class ReflectApp {
             const blob = new Blob([data], { type: 'application/json' });
             const a = document.createElement('a');
             a.href = URL.createObjectURL(blob);
-            a.download = (this.model.metadata.name || 'reflect-model') + '.json';
+            a.download = (this.model.metadata.name || 'nocapybara-model') + '.json';
             a.click();
             URL.revokeObjectURL(a.href);
             this._status('[EXPORTED]', 'success');
@@ -928,7 +928,7 @@ class ReflectApp {
                 this.starredNodes.add(nodeId);
                 document.getElementById('btn-star-node').textContent = '★';
             }
-            localStorage.setItem('reflect-starred', JSON.stringify([...this.starredNodes]));
+            localStorage.setItem('nocapybara-starred', JSON.stringify([...this.starredNodes]));
             this._renderStarredList();
         });
 
@@ -985,7 +985,7 @@ class ReflectApp {
             if (el) {
                 el.addEventListener('change', () => {
                     this.options[key] = el.checked;
-                    localStorage.setItem('reflect-options', JSON.stringify(this.options));
+                    localStorage.setItem('nocapybara-options', JSON.stringify(this.options));
                     this.renderer.markDirty();
                     this._updateEmptyState();
                 });
@@ -1000,8 +1000,8 @@ class ReflectApp {
         // Clear data
         document.getElementById('opt-clear-data').addEventListener('click', () => {
             if (confirm('This will delete ALL nodes, edges, and layers. Are you sure?')) {
-                localStorage.removeItem('reflect-state');
-                localStorage.removeItem('reflect-starred');
+                localStorage.removeItem('nocapybara-state');
+                localStorage.removeItem('nocapybara-starred');
                 location.reload();
             }
         });
@@ -2045,7 +2045,7 @@ Write concise, substantive paragraphs. Plain text only, no markdown headers. Be 
 
     _buildDebatePrompt(topic, history, side, round, totalRounds) {
         const syntaxRef = `
-FORMATTING GUIDE — You are writing inside a knowledge modeling environment called Reflect. Use these features:
+FORMATTING GUIDE — You are writing inside a knowledge modeling environment called NoCapybara. Use these features:
 
 - **Markdown**: Use # headings, **bold**, *italic*, > blockquotes, - bullet lists, 1. numbered lists
 - **Wiki Links**: Reference concepts with [[Double Brackets]] — e.g. [[Consciousness]], [[Emergence]], [[Free Will]]
@@ -2078,7 +2078,7 @@ Write richly formatted, interconnected arguments. Every key concept should be a 
     }
 
     _buildResolutionPrompt(topic, history) {
-        let prompt = `You are a neutral synthesizer writing inside a knowledge modeling environment called Reflect. Two AI models have debated the following topic:\n\n"${topic}"\n\nHere is the complete debate transcript:\n\n`;
+        let prompt = `You are a neutral synthesizer writing inside a knowledge modeling environment called NoCapybara. Two AI models have debated the following topic:\n\n"${topic}"\n\nHere is the complete debate transcript:\n\n`;
 
         history.forEach(h => {
             prompt += `=== DEBATER ${h.role} — ROUND ${h.round} ===\n${h.content}\n\n`;
@@ -2413,7 +2413,7 @@ This document should stand alone as a definitive, richly linked analysis. Do NOT
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `reflect-vault-${new Date().toISOString().split('T')[0]}.md`;
+        a.download = `nocapybara-vault-${new Date().toISOString().split('T')[0]}.md`;
         a.click();
         URL.revokeObjectURL(url);
         this._status(`[EXPORTED ${nodes.length} NODES]`, 'success');
@@ -2624,13 +2624,13 @@ This document should stand alone as a definitive, richly linked analysis. Do NOT
 
     _saveToStorage() {
         try {
-            localStorage.setItem('reflect-model', JSON.stringify(this.model.toJSON()));
+            localStorage.setItem('nocapybara-model', JSON.stringify(this.model.toJSON()));
         } catch (e) { /* quota exceeded */ }
     }
 
     _loadFromStorage() {
         try {
-            const data = localStorage.getItem('reflect-model') || localStorage.getItem('mindmirror-model') || localStorage.getItem('nexus-model');
+            const data = localStorage.getItem('nocapybara-model') || localStorage.getItem('mindmirror-model') || localStorage.getItem('nexus-model');
             if (data) {
                 this.model.fromJSON(JSON.parse(data));
                 this.renderer.fitView();
