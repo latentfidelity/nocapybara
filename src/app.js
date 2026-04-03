@@ -193,6 +193,10 @@ class ReflectApp {
             } else if (!e.ctrlKey && !e.metaKey && !node.selected) {
                 this._clearSelection();
                 this._selectNode(node, true);
+            } else if (node.selected && this.selectedNodes.size === 1) {
+                // Re-clicking a selected node → show inline branch input
+                this._showBranchInput(node);
+                return;
             } else {
                 this._selectNode(node, true);
             }
@@ -1301,7 +1305,6 @@ class ReflectApp {
 
         input.value = '';
         input.style.height = 'auto';
-        // Restart placeholder cycle
         setTimeout(() => this._startPlaceholderCycle(), 500);
 
         if (this.captureMode === 'debate') {
@@ -1309,40 +1312,107 @@ class ReflectApp {
             return;
         }
 
-        // Determine parent node for branching
-        let parentNode = null;
-        if (this.selectedNodes.size === 1) {
-            parentNode = this.model.nodes.get([...this.selectedNodes][0]);
-        }
-
-        let wp;
-        if (parentNode) {
-            // Branch: position near parent with slight offset
-            const angle = Math.random() * Math.PI * 2;
-            const dist = 180 + Math.random() * 60;
-            wp = { x: parentNode.x + Math.cos(angle) * dist, y: parentNode.y + Math.sin(angle) * dist };
-        } else {
-            wp = this.renderer.screenToWorld(this.renderer.viewW / 2, this.renderer.viewH / 2);
-            wp.x += (Math.random() - 0.5) * 200;
-            wp.y += (Math.random() - 0.5) * 200;
-        }
+        const wp = this.renderer.screenToWorld(this.renderer.viewW / 2, this.renderer.viewH / 2);
+        wp.x += (Math.random() - 0.5) * 200;
+        wp.y += (Math.random() - 0.5) * 200;
 
         const tempLabel = text.split('\n')[0].slice(0, 40) + (text.length > 40 ? '\u2026' : '');
         const node = this.model.addNode('claim', wp.x, wp.y, tempLabel);
         node.content = text;
 
-        // Connect to parent if branching
-        if (parentNode) {
-            this.model.addEdge(parentNode.id, node.id);
-        }
-
         this._clearSelection();
         this._selectNode(node);
-        this._status(parentNode ? '[BRANCHED]' : '[THOUGHT CAPTURED]');
+        this._status('[THOUGHT CAPTURED]');
 
         if (this.options.autoExpand && window.electronAPI && window.electronAPI.geminiRequest) {
             this._aiGenerateTitle(node, text);
         }
+    }
+
+    _showBranchInput(parentNode) {
+        // Remove any existing branch input
+        this._dismissBranchInput();
+
+        const typeDef = NexusModel.NODE_TYPES[parentNode.type] || NexusModel.NODE_TYPES.claim;
+        const screenPos = this.renderer.worldToScreen(parentNode.x, parentNode.y);
+
+        // Create overlay input
+        const wrapper = document.createElement('div');
+        wrapper.id = 'branch-input-wrapper';
+        wrapper.style.cssText = `
+            position: absolute;
+            left: ${screenPos.x - 100}px;
+            top: ${screenPos.y + 30}px;
+            z-index: 300;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        `;
+
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.placeholder = 'Branch from this node...';
+        input.style.cssText = `
+            width: 220px;
+            padding: 6px 12px;
+            background: rgba(17,17,17,0.95);
+            border: 2px solid ${typeDef.color};
+            border-radius: 14px;
+            color: #fff;
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 12px;
+            outline: none;
+            box-shadow: 0 0 16px ${typeDef.glow}, 0 4px 24px rgba(0,0,0,0.5);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        `;
+
+        wrapper.appendChild(input);
+        this.canvas.parentElement.appendChild(wrapper);
+
+        input.focus();
+
+        const submit = () => {
+            const text = input.value.trim();
+            if (!text) { this._dismissBranchInput(); return; }
+
+            const angle = Math.random() * Math.PI * 2;
+            const dist = 180 + Math.random() * 60;
+            const nx = parentNode.x + Math.cos(angle) * dist;
+            const ny = parentNode.y + Math.sin(angle) * dist;
+
+            const label = text.slice(0, 40) + (text.length > 40 ? '\u2026' : '');
+            const child = this.model.addNode('claim', nx, ny, label);
+            child.content = text;
+            this.model.addEdge(parentNode.id, child.id);
+
+            this._dismissBranchInput();
+            this._clearSelection();
+            this._selectNode(child);
+            this._status('[BRANCHED]');
+
+            if (this.options.autoExpand && window.electronAPI && window.electronAPI.geminiRequest) {
+                this._aiGenerateTitle(child, text);
+            }
+        };
+
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); submit(); }
+            if (e.key === 'Escape') { this._dismissBranchInput(); }
+            e.stopPropagation(); // Don't trigger canvas shortcuts
+        });
+
+        input.addEventListener('blur', () => {
+            setTimeout(() => this._dismissBranchInput(), 150);
+        });
+
+        this._branchInputActive = true;
+    }
+
+    _dismissBranchInput() {
+        const existing = document.getElementById('branch-input-wrapper');
+        if (existing) existing.remove();
+        this._branchInputActive = false;
     }
 
     async _aiGenerateTitle(node, text) {
