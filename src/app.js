@@ -107,8 +107,7 @@ class ReflectApp {
     }
 
     _onMouseDown(e) {
-        e.preventDefault(); // Prevent browser native drag/selection
-        this.canvas.setPointerCapture(e.pointerId);
+        if (e.button === 0) e.preventDefault(); // Prevent browser native drag on left-click
         const pos = this._getCanvasPos(e);
         this.lastMouse = pos;
         if (e.button !== 2) this._hideAllContextMenus();
@@ -226,7 +225,6 @@ class ReflectApp {
 
     _onMouseUp(e) {
         if (!this.dragState) return;
-        try { this.canvas.releasePointerCapture(e.pointerId); } catch(_) {}
         const pos = this._getCanvasPos(e);
 
         if (this.dragState === 'connect') {
