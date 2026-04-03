@@ -252,11 +252,22 @@ class GraphRenderer {
         // Post-processing: Subtle chromatic aberration / bloom
         // We replicate the canvas lightly with color offsets and 'screen' composite
         if (this.postProcessing !== false) {
+            if (!this.ppCanvas) {
+                this.ppCanvas = document.createElement('canvas');
+                this.ppCtx = this.ppCanvas.getContext('2d', { willReadFrequently: true });
+            }
+            if (this.ppCanvas.width !== this.canvas.width || this.ppCanvas.height !== this.canvas.height) {
+                this.ppCanvas.width = this.canvas.width;
+                this.ppCanvas.height = this.canvas.height;
+            }
+            this.ppCtx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+            this.ppCtx.drawImage(this.canvas, 0, 0);
+
             ctx.save();
             ctx.globalCompositeOperation = 'screen';
             ctx.globalAlpha = 0.08;
-            ctx.drawImage(this.canvas, -2, 0); // Red/left shift
-            ctx.drawImage(this.canvas, 2, 0);  // Blue/right shift
+            ctx.drawImage(this.ppCanvas, -2, 0); // Red/left shift
+            ctx.drawImage(this.ppCanvas, 2, 0);  // Blue/right shift
             ctx.restore();
         }
 
