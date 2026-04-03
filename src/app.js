@@ -33,6 +33,25 @@ class ReflectApp {
         this.typeFilter = new Set(['idea', 'topic', 'note', 'rule', 'event', 'detail']);
         this.renderer.typeFilter = this.typeFilter;
 
+        // Options (persisted)
+        const savedOpts = JSON.parse(localStorage.getItem('reflect-options') || '{}');
+        this.options = {
+            grid: savedOpts.grid === true,
+            labels: savedOpts.labels !== false,
+            edges: savedOpts.edges !== false,
+            edgeLabels: savedOpts.edgeLabels !== false,
+            autoExpand: savedOpts.autoExpand !== false,
+            grounding: savedOpts.grounding === true,
+            backlinks: savedOpts.backlinks !== false,
+            outline: savedOpts.outline !== false,
+            wordCount: savedOpts.wordCount !== false,
+            hoverPreview: savedOpts.hoverPreview !== false,
+            autoSave: savedOpts.autoSave !== false,
+            statusBar: savedOpts.statusBar !== false,
+            emptyState: savedOpts.emptyState !== false,
+        };
+        this.renderer.options = this.options;
+
         this._bindCanvas();
         this._bindUI();
         this._bindKeyboard();
@@ -877,6 +896,52 @@ class ReflectApp {
         contentTA.addEventListener('keydown', (e) => {
             this._handleWikiKeydown(e, contentTA);
         });
+
+        // Settings panel
+        document.getElementById('btn-settings').addEventListener('click', () => {
+            this._openOptions();
+        });
+        document.getElementById('options-close').addEventListener('click', () => {
+            document.getElementById('options-overlay').classList.add('hidden');
+        });
+        document.getElementById('options-overlay').addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) e.currentTarget.classList.add('hidden');
+        });
+
+        // Option toggles
+        const optMap = {
+            'opt-grid': 'grid', 'opt-labels': 'labels', 'opt-edges': 'edges',
+            'opt-edge-labels': 'edgeLabels', 'opt-auto-expand': 'autoExpand',
+            'opt-grounding': 'grounding', 'opt-backlinks': 'backlinks',
+            'opt-outline': 'outline', 'opt-word-count': 'wordCount',
+            'opt-hover-preview': 'hoverPreview', 'opt-auto-save': 'autoSave',
+            'opt-status-bar': 'statusBar', 'opt-empty-state': 'emptyState',
+        };
+        Object.entries(optMap).forEach(([elId, key]) => {
+            const el = document.getElementById(elId);
+            if (el) {
+                el.addEventListener('change', () => {
+                    this.options[key] = el.checked;
+                    localStorage.setItem('reflect-options', JSON.stringify(this.options));
+                    this.renderer.markDirty();
+                    this._updateEmptyState();
+                });
+            }
+        });
+
+        // Export all
+        document.getElementById('opt-export-all').addEventListener('click', () => {
+            this._exportAllMarkdown();
+        });
+
+        // Clear data
+        document.getElementById('opt-clear-data').addEventListener('click', () => {
+            if (confirm('This will delete ALL nodes, edges, and layers. Are you sure?')) {
+                localStorage.removeItem('reflect-state');
+                localStorage.removeItem('reflect-starred');
+                location.reload();
+            }
+        });
     }
 
     _bindKeyboard() {
@@ -1098,7 +1163,7 @@ class ReflectApp {
         this._selectNode(node);
         this._status('[THOUGHT CAPTURED]');
 
-        if (window.electronAPI && window.electronAPI.geminiRequest) {
+        if (this.options.autoExpand && window.electronAPI && window.electronAPI.geminiRequest) {
             this._aiGenerateTitle(node, text);
         }
     }
@@ -2174,6 +2239,58 @@ Write this as a structured document with clear headings. Be precise, honest, and
         this._status('[EXPORTED]', 'success');
     }
 
+    // ======================== OPTIONS ========================
+
+    _openOptions() {
+        // Sync checkbox state
+        const optMap = {
+            'opt-grid': 'grid', 'opt-labels': 'labels', 'opt-edges': 'edges',
+            'opt-edge-labels': 'edgeLabels', 'opt-auto-expand': 'autoExpand',
+            'opt-grounding': 'grounding', 'opt-backlinks': 'backlinks',
+            'opt-outline': 'outline', 'opt-word-count': 'wordCount',
+            'opt-hover-preview': 'hoverPreview', 'opt-auto-save': 'autoSave',
+            'opt-status-bar': 'statusBar', 'opt-empty-state': 'emptyState',
+        };
+        Object.entries(optMap).forEach(([elId, key]) => {
+            const el = document.getElementById(elId);
+            if (el) el.checked = this.options[key];
+        });
+        document.getElementById('options-overlay').classList.remove('hidden');
+    }
+
+    _exportAllMarkdown() {
+        const nodes = [...this.model.nodes.values()];
+        if (nodes.length === 0) {
+            this._status('[NO NODES TO EXPORT]');
+            return;
+        }
+
+        let allMd = '';
+        nodes.forEach(node => {
+            const typeDef = NexusModel.NODE_TYPES[node.type] || NexusModel.NODE_TYPES.idea;
+            allMd += `# ${node.label}\n\n`;
+            allMd += `> Type: ${typeDef.label}\n\n`;
+            if (node.description) allMd += `*${node.description}*\n\n`;
+            const propKeys = Object.keys(node.properties || {});
+            if (propKeys.length > 0) {
+                allMd += `## Properties\n\n`;
+                propKeys.forEach(k => { allMd += `- **${k}**: ${node.properties[k]}\n`; });
+                allMd += '\n';
+            }
+            if (node.content) allMd += `---\n\n${node.content}\n\n`;
+            allMd += '\n---\n\n';
+        });
+
+        const blob = new Blob([allMd], { type: 'text/markdown' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `reflect-vault-${new Date().toISOString().split('T')[0]}.md`;
+        a.click();
+        URL.revokeObjectURL(url);
+        this._status(`[EXPORTED ${nodes.length} NODES]`, 'success');
+    }
+
     // ======================== WORD COUNT ========================
 
     _updateWordCount(text) {
@@ -2206,7 +2323,7 @@ Write this as a structured document with clear headings. Be precise, honest, and
 
     _updateEmptyState() {
         const el = document.getElementById('empty-state');
-        if (this.model.nodes.size > 0) el.classList.add('hidden');
+        if (this.model.nodes.size > 0 || !this.options.emptyState) el.classList.add('hidden');
         else el.classList.remove('hidden');
     }
 
