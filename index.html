@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reflect</title>
+    <meta name="description" content="Point cloud world model — attach pages to nodes, organize logic visually.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;700&family=Space+Mono:wght@400;700&family=Doto:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Top Bar -->
+        <header id="topbar">
+            <div class="topbar-left">
+                <div class="logo">
+                    <img src="icon.png" alt="Reflect" width="24" height="24" style="border-radius:4px;">
+                    <span class="logo-text">REFLECT</span>
+                </div>
+            </div>
+            <div class="topbar-center">
+                <div class="search-container">
+                    <input type="text" id="search-input" placeholder="SEARCH..." autocomplete="off">
+                    <span class="search-hint">/</span>
+                </div>
+            </div>
+            <div class="topbar-right"></div>
+            <!-- Hidden elements for JS compatibility -->
+            <div style="display:none">
+                <button id="btn-new"></button>
+                <button id="btn-save"></button>
+                <button id="btn-export"></button>
+                <button id="btn-import"></button>
+                <input type="file" id="import-file" accept=".json">
+                <button id="btn-zoom-in"></button>
+                <button id="btn-zoom-out"></button>
+                <button id="btn-zoom-fit"></button>
+                <span id="node-count"></span>
+                <span id="edge-count"></span>
+                <span id="zoom-level"></span>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <div id="main-content">
+            <!-- Left Panel: Pages -->
+            <aside id="panel-left">
+                <div class="panel-tabs">
+                    <button class="panel-tab active" data-tab="pages">PAGES</button>
+                    <button class="panel-tab" data-tab="types">TYPES</button>
+                </div>
+
+                <!-- Pages Tab -->
+                <div class="panel-tab-content active" id="tab-pages">
+                    <div class="panel-toolbar">
+                        <button id="btn-new-page" class="btn-new-page">+ NEW PAGE</button>
+                    </div>
+                    <div id="pages-tree" class="pages-tree"></div>
+                </div>
+
+                <!-- Types Tab -->
+                <div class="panel-tab-content" id="tab-types">
+                    <div class="type-palette">
+                        <div class="type-item" data-type="concept" draggable="true">
+                            <span class="type-dot" style="background:#fff"></span>
+                            <span class="type-label">CONCEPT</span>
+                        </div>
+                        <div class="type-item" data-type="entity" draggable="true">
+                            <span class="type-dot" style="background:#ccc"></span>
+                            <span class="type-label">ENTITY</span>
+                        </div>
+                        <div class="type-item" data-type="rule" draggable="true">
+                            <span class="type-dot" style="background:#888"></span>
+                            <span class="type-label">RULE</span>
+                        </div>
+                        <div class="type-item" data-type="state" draggable="true">
+                            <span class="type-dot" style="background:#aaa"></span>
+                            <span class="type-label">STATE</span>
+                        </div>
+                        <div class="type-item" data-type="event" draggable="true">
+                            <span class="type-dot" style="background:#666"></span>
+                            <span class="type-label">EVENT</span>
+                        </div>
+                        <div class="type-item" data-type="property" draggable="true">
+                            <span class="type-dot" style="background:#999"></span>
+                            <span class="type-label">PROPERTY</span>
+                        </div>
+                    </div>
+                </div>
+                <!-- Help -->
+                <div class="panel-footer">
+                    <button id="btn-help" class="help-btn">?</button>
+                </div>
+            </aside>
+
+            <!-- Canvas Area -->
+            <div id="canvas-container">
+                <canvas id="graph-canvas"></canvas>
+                <!-- Empty state -->
+                <div id="empty-state">
+                    <div class="empty-label">[ EMPTY ]</div>
+                    <p>Double-click to add a node. Shift+drag to connect.<br>Type in the thought bar below to capture ideas.</p>
+                </div>
+                <!-- Thought Capture -->
+                <div id="thought-bar">
+                    <div class="thought-bar-inner">
+                        <textarea id="thought-input" placeholder="Stream of consciousness..." rows="1"></textarea>
+                        <button id="thought-submit" class="thought-submit">↵</button>
+                    </div>
+                </div>
+                <div id="help-overlay" class="help-overlay hidden">
+                    <div class="help-panel">
+                        <div class="help-header">
+                            <span>KEYBOARD SHORTCUTS</span>
+                            <button id="help-close" class="panel-close">×</button>
+                        </div>
+                        <div class="help-grid">
+                            <div class="help-key">/</div><div class="help-desc">SEARCH</div>
+                            <div class="help-key">DBL-CLICK</div><div class="help-desc">NEW NODE</div>
+                            <div class="help-key">SHIFT+DRAG</div><div class="help-desc">CONNECT NODES</div>
+                            <div class="help-key">ALT+DRAG</div><div class="help-desc">PAN CANVAS</div>
+                            <div class="help-key">DEL</div><div class="help-desc">DELETE SELECTED</div>
+                            <div class="help-key">⌘ A</div><div class="help-desc">SELECT ALL</div>
+                            <div class="help-key">⌘ S</div><div class="help-desc">SAVE</div>
+                            <div class="help-key">⌘ 0</div><div class="help-desc">FIT VIEW</div>
+                            <div class="help-key">⌘ +/−</div><div class="help-desc">ZOOM IN/OUT</div>
+                            <div class="help-key">ESC</div><div class="help-desc">CLEAR SELECTION</div>
+                            <div class="help-key">ENTER</div><div class="help-desc">CAPTURE THOUGHT</div>
+                            <div class="help-key">RIGHT-CLICK</div><div class="help-desc">CONTEXT MENU</div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Context Menu -->
+                <div id="context-menu" class="context-menu hidden">
+                    <div class="context-menu-item" data-action="add-concept">ADD CONCEPT</div>
+                    <div class="context-menu-item" data-action="add-entity">ADD ENTITY</div>
+                    <div class="context-menu-item" data-action="add-rule">ADD RULE</div>
+                    <div class="context-menu-item" data-action="add-state">ADD STATE</div>
+                    <div class="context-menu-item" data-action="add-event">ADD EVENT</div>
+                    <div class="context-menu-item" data-action="add-property">ADD PROPERTY</div>
+                    <div class="context-menu-sep"></div>
+                    <div class="context-menu-item" data-action="select-all">SELECT ALL</div>
+                    <div class="context-menu-item" data-action="fit-view">FIT VIEW</div>
+                </div>
+                <!-- Node Context Menu -->
+                <div id="node-context-menu" class="context-menu hidden">
+                    <div class="context-menu-item" data-action="edit-node">EDIT</div>
+                    <div class="context-menu-item" data-action="duplicate-node">DUPLICATE</div>
+                    <div class="context-menu-item" data-action="connect-from">CONNECT FROM</div>
+                    <div class="context-menu-sep"></div>
+                    <div class="context-menu-item danger" data-action="delete-node">DELETE</div>
+                </div>
+                <!-- Edge Context Menu -->
+                <div id="edge-context-menu" class="context-menu hidden">
+                    <div class="context-menu-item" data-action="edit-edge">EDIT LABEL</div>
+                    <div class="context-menu-item" data-action="reverse-edge">REVERSE</div>
+                    <div class="context-menu-sep"></div>
+                    <div class="context-menu-item danger" data-action="delete-edge">DELETE</div>
+                </div>
+            </div>
+
+            <!-- Right Panel: Inspector -->
+            <aside id="panel-right" data-state="collapsed">
+                <div class="panel-header">
+                    <span id="inspector-title" class="panel-title">INSPECTOR</span>
+                    <button id="toggle-right-panel" class="panel-close" title="Close">×</button>
+                </div>
+                <div id="inspector-content" class="inspector-content">
+                    <div id="inspector-empty" class="inspector-empty">
+                        <p>[ NO SELECTION ]</p>
+                    </div>
+                    <div id="inspector-node" class="inspector-panel hidden">
+                        <div class="field">
+                            <label for="node-label">LABEL</label>
+                            <input type="text" id="node-label" placeholder="Node label...">
+                        </div>
+                        <div class="field">
+                            <label for="node-type-select">TYPE</label>
+                            <select id="node-type-select">
+                                <option value="concept">CONCEPT</option>
+                                <option value="entity">ENTITY</option>
+                                <option value="rule">RULE</option>
+                                <option value="state">STATE</option>
+                                <option value="event">EVENT</option>
+                                <option value="property">PROPERTY</option>
+                            </select>
+                        </div>
+                        <div class="field">
+                            <label for="node-description">DESCRIPTION</label>
+                            <textarea id="node-description" rows="2" placeholder="Brief description..."></textarea>
+                        </div>
+                        <div class="field" id="content-field">
+                            <label for="node-content">PAGE CONTENT</label>
+                            <textarea id="node-content" rows="12" placeholder="Write page content..."></textarea>
+                        </div>
+                        <div class="field">
+                            <label for="node-layer-select">LAYER</label>
+                            <select id="node-layer-select"></select>
+                        </div>
+                        <div class="field-section">
+                            <div class="field-section-header">
+                                <span>PROPERTIES</span>
+                                <button id="btn-add-property" class="btn-ghost">+ ADD</button>
+                            </div>
+                            <div id="custom-properties-list"></div>
+                        </div>
+                        <div class="field-section">
+                            <div class="field-section-header">
+                                <span>CONNECTIONS</span>
+                            </div>
+                            <div id="node-connections-list"></div>
+                        </div>
+                        <div class="field-section">
+                            <div class="field-section-header">
+                                <span>NOTES</span>
+                            </div>
+                            <textarea id="node-notes" rows="3" placeholder="Free-form notes..."></textarea>
+                        </div>
+                        <div class="field-actions">
+                            <button id="btn-delete-selected" class="btn-destructive">DELETE NODE</button>
+                        </div>
+                    </div>
+                    <div id="inspector-edge" class="inspector-panel hidden">
+                        <div class="field">
+                            <label for="edge-label">RELATIONSHIP</label>
+                            <input type="text" id="edge-label" placeholder="e.g. 'is a', 'has', 'triggers'...">
+                        </div>
+                        <div class="field">
+                            <label>FROM</label>
+                            <div id="edge-from" class="field-readonly"></div>
+                        </div>
+                        <div class="field">
+                            <label>TO</label>
+                            <div id="edge-to" class="field-readonly"></div>
+                        </div>
+                        <div class="field">
+                            <label for="edge-style-select">STYLE</label>
+                            <select id="edge-style-select">
+                                <option value="solid">SOLID</option>
+                                <option value="dashed">DASHED</option>
+                                <option value="dotted">DOTTED</option>
+                            </select>
+                        </div>
+                        <div class="field">
+                            <label for="edge-weight">WEIGHT</label>
+                            <input type="range" id="edge-weight" min="1" max="5" value="1">
+                        </div>
+                        <div class="field-actions">
+                            <button id="btn-reverse-edge" class="btn-secondary">REVERSE</button>
+                            <button id="btn-delete-edge" class="btn-destructive">DELETE</button>
+                        </div>
+                    </div>
+                    <div id="inspector-multi" class="inspector-panel hidden">
+                        <div class="multi-info">
+                            <span id="multi-count">0</span> ITEMS SELECTED
+                        </div>
+                        <div class="field-actions">
+                            <button id="btn-group-selected" class="btn-secondary">GROUP</button>
+                            <button id="btn-delete-multi" class="btn-destructive">DELETE ALL</button>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+        </div>
+
+        <!-- Inline Status -->
+        <div id="status-bar"></div>
+
+        <!-- Modal -->
+        <div id="modal-overlay" class="modal-overlay hidden">
+            <div class="modal">
+                <h3 id="modal-title">NEW CONNECTION</h3>
+                <div class="modal-body">
+                    <div class="field">
+                        <label for="modal-input">RELATIONSHIP LABEL</label>
+                        <input type="text" id="modal-input" placeholder="e.g. 'contains', 'triggers', 'is a'...">
+                    </div>
+                </div>
+                <div class="modal-actions">
+                    <button id="modal-cancel" class="btn-secondary">CANCEL</button>
+                    <button id="modal-confirm" class="btn-primary">CREATE</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="src/model.js"></script>
+    <script src="src/renderer.js"></script>
+    <script src="src/app.js"></script>
+</body>
+</html>
