@@ -2344,7 +2344,7 @@ Write concise, substantive paragraphs. Plain text only, no markdown headers. Be 
                     if (di > 0) {
                         const prevNode = lastNodes[di - 1];
                         if (prevNode !== topicNode) {
-                            this.model.addEdge(node.id, prevNode.id, 'counters');
+                            this.model.addEdge(prevNode.id, node.id, 'counters');
                         }
                     }
 
@@ -2394,6 +2394,9 @@ Write concise, substantive paragraphs. Plain text only, no markdown headers. Be 
 
             statusEl.textContent = '\u2713 DEBATE RESOLVED \u2014 Click any node to inspect';
             this._status('[DEBATE RESOLVED]', 'success');
+            
+            // Pan camera to the final resolution node so it is clearly visible
+            this._jumpToNode(resNode);
 
         } catch (err) {
             topicNode._loading = false;
