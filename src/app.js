@@ -2,6 +2,51 @@
 // REFLECT — Interaction & UI Controller
 // ============================================
 
+// Lightweight markdown → HTML renderer
+function renderMarkdown(text) {
+    if (!text || typeof text !== 'string') return '';
+    let html = text
+        // Escape HTML
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        // Code blocks (``` ... ```)
+        .replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>')
+        // Inline code
+        .replace(/`([^`]+)`/g, '<code>$1</code>')
+        // Headings
+        .replace(/^#### (.+)$/gm, '<h4>$1</h4>')
+        .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+        .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+        .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+        // Blockquotes
+        .replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>')
+        // Bold + italic
+        .replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>')
+        // Bold
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        // Italic
+        .replace(/\*(.+?)\*/g, '<em>$1</em>')
+        // Wiki link embeds ![[...]]
+        .replace(/!\[\[([^\]]+)\]\]/g, '<span class="md-embed" title="Embed: $1">📎 $1</span>')
+        // Wiki links [[...]]
+        .replace(/\[\[([^\]]+)\]\]/g, '<span class="md-wikilink" title="Link: $1">$1</span>')
+        // Tags #word
+        .replace(/(^|\s)#(\w[\w-]*)/g, '$1<span class="md-tag">#$2</span>')
+        // Horizontal rule
+        .replace(/^---$/gm, '<hr>')
+        // Unordered lists
+        .replace(/^- (.+)$/gm, '<li>$1</li>')
+        // Numbered lists
+        .replace(/^\d+\. (.+)$/gm, '<li>$1</li>')
+        // Line breaks
+        .replace(/\n/g, '<br>');
+    // Wrap consecutive <li> in <ul>
+    html = html.replace(/((?:<li>.*?<\/li><br>?)+)/g, '<ul>$1</ul>');
+    html = html.replace(/<ul>([\s\S]*?)<\/ul>/g, (match, inner) => '<ul>' + inner.replace(/<br>/g, '') + '</ul>');
+    // Merge consecutive blockquotes
+    html = html.replace(/<\/blockquote><br><blockquote>/g, '<br>');
+    return html;
+}
+
 class ReflectApp {
     constructor() {
         this.model = new NexusModel.WorldModel();
@@ -1321,7 +1366,7 @@ Thought: "${text.replace(/"/g, '\\"')}"`;
                 }
                 // Update write modal
                 if (writeBody) {
-                    writeBody.textContent = contentSoFar;
+                    writeBody.innerHTML = renderMarkdown(contentSoFar);
                     writeBody.scrollTop = writeBody.scrollHeight;
                 }
             }
@@ -1906,7 +1951,7 @@ Write concise, substantive paragraphs. Plain text only, no markdown headers. Be 
             msg.className = `debate-msg side-${side.toLowerCase()}`;
             msg.innerHTML = `
                 <div class="debate-msg-header">${side === 'RESOLUTION' ? '◆ RESOLUTION' : `${side === 'A' ? '🔴' : '🔵'} MODEL ${side} — ROUND ${round}`} · ${model}</div>
-                <div class="debate-msg-body">${String(content || '').replace(/\n/g, '<br>')}</div>
+                <div class="debate-msg-body">${renderMarkdown(String(content || ''))}</div>
             `;
             transcript.appendChild(msg);
             transcript.scrollTop = transcript.scrollHeight;
@@ -2450,11 +2495,24 @@ This document should stand alone as a definitive, richly linked analysis. Do NOT
             group.nodes.sort((a, b) => a.label.localeCompare(b.label)).forEach(n => {
                 const item = document.createElement('div');
                 item.className = 'page-item' + (this.selectedNodes.has(n.id) ? ' active' : '');
-                item.innerHTML = `<span class="page-item-label">${this._esc(n.label)}</span>`;
+                
+                // Check if this node is a debate topic (has debate child nodes)
+                const childEdges = [];
+                this.model.edges.forEach(e => {
+                    if (e.from === n.id) childEdges.push(e);
+                });
+                const debateChildren = childEdges
+                    .map(e => this.model.nodes.get(e.to))
+                    .filter(child => child && child.properties && (child.properties.side || child.properties.type === 'resolution'));
+                
+                const hasDebateChildren = debateChildren.length > 0;
+                
+                item.innerHTML = `${hasDebateChildren ? '<span class="page-item-toggle">▶</span>' : ''}<span class="page-item-label">${this._esc(n.label)}</span>`;
                 item.dataset.id = n.id;
                 item.draggable = true;
 
-                item.addEventListener('click', () => {
+                item.addEventListener('click', (e) => {
+                    if (e.target.classList.contains('page-item-toggle')) return;
                     this._clearSelection();
                     this._selectNode(n);
                     this.renderer.panTo(n.x, n.y);
@@ -2493,6 +2551,48 @@ This document should stand alone as a definitive, richly linked analysis. Do NOT
                 });
 
                 items.appendChild(item);
+
+                // Debate subdrawer
+                if (hasDebateChildren) {
+                    const subItems = document.createElement('div');
+                    subItems.className = 'page-sub-items collapsed';
+                    
+                    debateChildren.sort((a, b) => {
+                        const rA = parseInt(a.properties.round || '99');
+                        const rB = parseInt(b.properties.round || '99');
+                        if (rA !== rB) return rA - rB;
+                        return (a.properties.side || '').localeCompare(b.properties.side || '');
+                    }).forEach(child => {
+                        const side = child.properties.side;
+                        const round = child.properties.round;
+                        const isRes = child.properties.type === 'resolution';
+                        const indicator = isRes ? '◆' : (side === 'A' ? '🔴' : '🔵');
+                        const subLabel = isRes ? 'Resolution' : `R${round} · ${side}`;
+                        
+                        const subItem = document.createElement('div');
+                        subItem.className = 'page-item page-sub-item' + (this.selectedNodes.has(child.id) ? ' active' : '');
+                        subItem.innerHTML = `<span class="page-sub-indicator">${indicator}</span><span class="page-item-label">${subLabel}</span>`;
+                        subItem.addEventListener('click', () => {
+                            this._clearSelection();
+                            this._selectNode(child);
+                            this.renderer.panTo(child.x, child.y);
+                            this._openInspector(child);
+                        });
+                        subItems.appendChild(subItem);
+                    });
+                    
+                    items.appendChild(subItems);
+                    
+                    // Toggle subdrawer
+                    const toggle = item.querySelector('.page-item-toggle');
+                    if (toggle) {
+                        toggle.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            subItems.classList.toggle('collapsed');
+                            toggle.textContent = subItems.classList.contains('collapsed') ? '▶' : '▼';
+                        });
+                    }
+                }
             });
 
             groupEl.appendChild(header);
