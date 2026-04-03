@@ -234,39 +234,41 @@ class ReflectApp {
 
     _onMouseUp(e) {
         if (!this.dragState) return;
-        const pos = this._getCanvasPos(e);
+        try {
+            const pos = this._getCanvasPos(e);
 
-        if (this.dragState === 'connect') {
-            const target = this.renderer.nodeAtScreen(pos.x, pos.y);
-            if (target && target !== this.connectFromNode) {
-                this._showEdgeLabelModal(this.connectFromNode.id, target.id);
-            }
-            this.renderer.pendingConnection = null;
-            this.connectFromNode = null;
-            this.model.nodes.forEach(n => { n.hovered = false; });
-            this.renderer.markDirty();
-        }
-
-        if (this.dragState === 'select' && this.renderer.selectionBox) {
-            const sb = this.renderer.selectionBox;
-            const topLeft = this.renderer.screenToWorld(sb.x, sb.y);
-            const bottomRight = this.renderer.screenToWorld(sb.x + sb.w, sb.y + sb.h);
-            let count = 0;
-            this.model.nodes.forEach(n => {
-                if (n.x >= topLeft.x && n.x <= bottomRight.x && n.y >= topLeft.y && n.y <= bottomRight.y) {
-                    this._selectNode(n, true);
-                    count++;
+            if (this.dragState === 'connect') {
+                const target = this.renderer.nodeAtScreen(pos.x, pos.y);
+                if (target && target !== this.connectFromNode) {
+                    this._showEdgeLabelModal(this.connectFromNode.id, target.id);
                 }
-            });
-            this.renderer.selectionBox = null;
-            this.renderer.markDirty();
-            if (count > 0) this._status(`[${count} SELECTED]`);
-        }
+                this.renderer.pendingConnection = null;
+                this.connectFromNode = null;
+                this.model.nodes.forEach(n => { n.hovered = false; });
+                this.renderer.markDirty();
+            }
 
-        this.renderer.selectionBox = null;
-        this.dragState = null;
-        this.canvas.style.cursor = 'default';
-        this.renderer.markDirty();
+            if (this.dragState === 'select' && this.renderer.selectionBox) {
+                const sb = this.renderer.selectionBox;
+                const topLeft = this.renderer.screenToWorld(sb.x, sb.y);
+                const bottomRight = this.renderer.screenToWorld(sb.x + sb.w, sb.y + sb.h);
+                let count = 0;
+                this.model.nodes.forEach(n => {
+                    if (n.x >= topLeft.x && n.x <= bottomRight.x && n.y >= topLeft.y && n.y <= bottomRight.y) {
+                        this._selectNode(n, true);
+                        count++;
+                    }
+                });
+                if (count > 0) this._status(`[${count} SELECTED]`);
+            }
+        } catch (err) {
+            console.warn('[mouseUp error]', err);
+        } finally {
+            this.renderer.selectionBox = null;
+            this.dragState = null;
+            this.canvas.style.cursor = 'default';
+            this.renderer.markDirty();
+        }
     }
 
     _onDoubleClick(e) {
@@ -1564,8 +1566,8 @@ Write concise, substantive paragraphs. Plain text only, no markdown headers. Be 
 
             // Check for [[wiki link]] references
             const wikiPattern = `[[${node.label}]]`;
-            const contentLower = (other.content || '').toLowerCase();
-            const notesLower = (other.notes || '').toLowerCase();
+            const contentLower = String(other.content || '').toLowerCase();
+            const notesLower = String(other.notes || '').toLowerCase();
 
             const hasWikiLink = contentLower.includes(wikiPattern.toLowerCase()) ||
                                 notesLower.includes(wikiPattern.toLowerCase());
