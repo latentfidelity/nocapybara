@@ -179,7 +179,7 @@ ipcMain.handle('gemini-request', async (event, prompt, useGrounding = false, mod
             contents: [{ parts: [{ text: prompt }] }],
             generationConfig: {
                 temperature: 0.4,
-                maxOutputTokens: 2048
+                maxOutputTokens: 8192
             }
         };
 
@@ -216,7 +216,7 @@ ipcMain.handle('gemini-stream', async (event, prompt, useGrounding = false, mode
     try {
         const body = {
             contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: { temperature: 0.4, maxOutputTokens: 2048 }
+            generationConfig: { temperature: 0.4, maxOutputTokens: 8192 }
         };
         if (useGrounding) {
             body.tools = [{ google_search: {} }];
