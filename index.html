@@ -49,6 +49,7 @@
             <aside id="panel-left">
                 <div class="panel-tabs">
                     <button class="panel-tab active" data-tab="pages">PAGES</button>
+                    <button class="panel-tab" data-tab="starred">★</button>
                     <button class="panel-tab" data-tab="types">TYPES</button>
                 </div>
 
@@ -60,33 +61,49 @@
                     <div id="pages-tree" class="pages-tree"></div>
                 </div>
 
+                <!-- Starred Tab -->
+                <div class="panel-tab-content" id="tab-starred">
+                    <div id="starred-list" class="pages-tree"></div>
+                </div>
+
                 <!-- Types Tab -->
                 <div class="panel-tab-content" id="tab-types">
                     <div class="type-palette">
-                        <div class="type-item" data-type="concept" draggable="true">
+                        <div class="type-item" data-type="idea" draggable="true">
                             <span class="type-dot" style="background:#fff"></span>
-                            <span class="type-label">CONCEPT</span>
+                            <span class="type-label">IDEA</span>
                         </div>
-                        <div class="type-item" data-type="entity" draggable="true">
+                        <div class="type-item" data-type="topic" draggable="true">
                             <span class="type-dot" style="background:#ccc"></span>
-                            <span class="type-label">ENTITY</span>
+                            <span class="type-label">TOPIC</span>
+                        </div>
+                        <div class="type-item" data-type="note" draggable="true">
+                            <span class="type-dot" style="background:#aaa"></span>
+                            <span class="type-label">NOTE</span>
                         </div>
                         <div class="type-item" data-type="rule" draggable="true">
                             <span class="type-dot" style="background:#888"></span>
                             <span class="type-label">RULE</span>
                         </div>
-                        <div class="type-item" data-type="state" draggable="true">
-                            <span class="type-dot" style="background:#aaa"></span>
-                            <span class="type-label">STATE</span>
-                        </div>
                         <div class="type-item" data-type="event" draggable="true">
                             <span class="type-dot" style="background:#666"></span>
                             <span class="type-label">EVENT</span>
                         </div>
-                        <div class="type-item" data-type="property" draggable="true">
+                        <div class="type-item" data-type="detail" draggable="true">
                             <span class="type-dot" style="background:#999"></span>
-                            <span class="type-label">PROPERTY</span>
+                            <span class="type-label">DETAIL</span>
                         </div>
+                    </div>
+                    <div class="field-section-header" style="margin-top:12px">
+                        <span>GRAPH FILTER</span>
+                    </div>
+                    <div class="graph-filters">
+                        <label class="filter-check"><input type="checkbox" data-filter="idea" checked> Idea</label>
+                        <label class="filter-check"><input type="checkbox" data-filter="topic" checked> Topic</label>
+                        <label class="filter-check"><input type="checkbox" data-filter="note" checked> Note</label>
+                        <label class="filter-check"><input type="checkbox" data-filter="rule" checked> Rule</label>
+                        <label class="filter-check"><input type="checkbox" data-filter="event" checked> Event</label>
+                        <label class="filter-check"><input type="checkbox" data-filter="detail" checked> Detail</label>
                     </div>
                 </div>
                 <!-- Help -->
@@ -110,11 +127,31 @@
                         <button id="thought-submit" class="thought-submit">↵</button>
                     </div>
                     <div class="thought-toolbar">
-                        <button id="model-btn" class="thought-tool" title="Select model">
-                            <span id="model-label">⚡ 2.5 FLASH</span>
-                        </button>
+                        <div class="mode-toggle">
+                            <button id="mode-note" class="mode-btn active" data-mode="note">WRITE</button>
+                            <button id="mode-debate" class="mode-btn" data-mode="debate">DEBATE</button>
+                        </div>
+                        <div id="note-controls" class="toolbar-group">
+                            <button id="model-btn" class="thought-tool" title="Select model">
+                                <span id="model-label">⚡ 2.5 FLASH</span>
+                            </button>
+                        </div>
+                        <div id="debate-controls" class="toolbar-group hidden">
+                            <button id="model-a-btn" class="thought-tool debate-model-btn" title="Model A">
+                                <span id="model-a-label">🔴 A: 2.5 PRO</span>
+                            </button>
+                            <span class="debate-vs">VS</span>
+                            <button id="model-b-btn" class="thought-tool debate-model-btn" title="Model B">
+                                <span id="model-b-label">🔵 B: 3 PRO</span>
+                            </button>
+                            <select id="debate-rounds" class="debate-rounds" title="Rounds">
+                                <option value="3">3 ROUNDS</option>
+                                <option value="5" selected>5 ROUNDS</option>
+                                <option value="7">7 ROUNDS</option>
+                            </select>
+                        </div>
                     </div>
-                    <!-- Model popup menu -->
+                    <!-- Model popup menu (shared) -->
                     <div id="model-menu" class="thought-popup hidden">
                         <div class="thought-popup-item" data-model="gemini-3.1-pro-preview">◆ 3.1 PRO</div>
                         <div class="thought-popup-item" data-model="gemini-3-pro-preview">◆ 3 PRO</div>
@@ -137,10 +174,39 @@
                         <div class="page-view-header">
                             <span id="page-view-title" class="page-view-title"></span>
                             <span id="page-view-type" class="page-view-type"></span>
+                            <button id="btn-split-pane" class="btn-ghost" title="Split Pane">⫼</button>
                             <button id="page-view-close" class="panel-close">×</button>
                         </div>
-                        <div id="page-view-desc" class="page-view-desc"></div>
-                        <div id="page-view-content" class="page-view-content"></div>
+                        <div class="page-view-body">
+                            <div id="page-view-outline" class="page-view-outline">
+                                <div class="outline-header">OUTLINE</div>
+                                <div id="outline-items"></div>
+                            </div>
+                            <div class="page-view-main">
+                                <div id="page-view-desc" class="page-view-desc"></div>
+                                <div id="page-view-content" class="page-view-content"></div>
+                            </div>
+                            <div id="split-pane" class="split-pane hidden">
+                                <div class="split-pane-header">
+                                    <span id="split-pane-title" class="page-view-title"></span>
+                                    <button id="split-pane-close" class="panel-close">×</button>
+                                </div>
+                                <div id="split-pane-content" class="page-view-content"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Hover Preview Tooltip -->
+                <div id="hover-preview" class="hover-preview hidden">
+                    <div id="hover-preview-title" class="hover-preview-title"></div>
+                    <div id="hover-preview-desc" class="hover-preview-desc"></div>
+                    <div id="hover-preview-snippet" class="hover-preview-snippet"></div>
+                </div>
+                <!-- Quick Switcher (Cmd+P) -->
+                <div id="quick-switcher" class="quick-switcher hidden">
+                    <div class="qs-container">
+                        <input id="qs-input" type="text" class="qs-input" placeholder="Jump to page..." autocomplete="off">
+                        <div id="qs-results" class="qs-results"></div>
                     </div>
                 </div>
                 <div id="help-overlay" class="help-overlay hidden">
@@ -160,6 +226,8 @@
                             <div class="help-key">⌘ 0</div><div class="help-desc">FIT VIEW</div>
                             <div class="help-key">⌘ +/−</div><div class="help-desc">ZOOM IN/OUT</div>
                             <div class="help-key">ESC</div><div class="help-desc">CLEAR SELECTION</div>
+                            <div class="help-key">⌘ P</div><div class="help-desc">QUICK SWITCHER</div>
+                            <div class="help-key">⌘ D</div><div class="help-desc">DAILY NOTE</div>
                             <div class="help-key">ENTER</div><div class="help-desc">CAPTURE THOUGHT</div>
                             <div class="help-key">RIGHT-CLICK</div><div class="help-desc">CONTEXT MENU</div>
                         </div>
@@ -167,21 +235,26 @@
                 </div>
                 <!-- Context Menu -->
                 <div id="context-menu" class="context-menu hidden">
-                    <div class="context-menu-item" data-action="add-concept">ADD CONCEPT</div>
-                    <div class="context-menu-item" data-action="add-entity">ADD ENTITY</div>
+                    <div class="context-menu-item" data-action="add-idea">ADD IDEA</div>
+                    <div class="context-menu-item" data-action="add-topic">ADD TOPIC</div>
+                    <div class="context-menu-item" data-action="add-note">ADD NOTE</div>
                     <div class="context-menu-item" data-action="add-rule">ADD RULE</div>
-                    <div class="context-menu-item" data-action="add-state">ADD STATE</div>
                     <div class="context-menu-item" data-action="add-event">ADD EVENT</div>
-                    <div class="context-menu-item" data-action="add-property">ADD PROPERTY</div>
+                    <div class="context-menu-item" data-action="add-detail">ADD DETAIL</div>
                     <div class="context-menu-sep"></div>
                     <div class="context-menu-item" data-action="select-all">SELECT ALL</div>
                     <div class="context-menu-item" data-action="fit-view">FIT VIEW</div>
                 </div>
-                <!-- Node Context Menu -->
                 <div id="node-context-menu" class="context-menu hidden">
                     <div class="context-menu-item" data-action="edit-node">EDIT</div>
+                    <div class="context-menu-item" data-action="view-page">VIEW PAGE</div>
                     <div class="context-menu-item" data-action="duplicate-node">DUPLICATE</div>
                     <div class="context-menu-item" data-action="connect-from">CONNECT FROM</div>
+                    <div class="context-menu-sep"></div>
+                    <div class="context-menu-item" data-action="template-concept">⊡ CONCEPT TEMPLATE</div>
+                    <div class="context-menu-item" data-action="template-project">⊡ PROJECT TEMPLATE</div>
+                    <div class="context-menu-item" data-action="template-meeting">⊡ MEETING TEMPLATE</div>
+                    <div class="context-menu-item" data-action="template-research">⊡ RESEARCH TEMPLATE</div>
                     <div class="context-menu-sep"></div>
                     <div class="context-menu-item danger" data-action="delete-node">DELETE</div>
                 </div>
@@ -201,11 +274,13 @@
                     <button id="toggle-right-panel" class="panel-close" title="Close">×</button>
                 </div>
                 <div id="inspector-content" class="inspector-content">
-                    <div id="inspector-empty" class="inspector-empty">
-                        <p>[ NO SELECTION ]</p>
-                    </div>
+                    <div id="inspector-empty" class="inspector-empty hidden"></div>
                     <div id="inspector-node" class="inspector-panel hidden">
                         <button id="btn-view-page" class="btn-view-page">VIEW PAGE</button>
+                        <div class="inspector-actions-row">
+                            <button id="btn-star-node" class="btn-ghost" title="Star">☆</button>
+                            <button id="btn-export-md" class="btn-ghost" title="Export Markdown">↓ MD</button>
+                        </div>
                         <div class="field">
                             <label for="node-label">LABEL</label>
                             <input type="text" id="node-label" placeholder="Node label...">
@@ -213,12 +288,12 @@
                         <div class="field">
                             <label for="node-type-select">TYPE</label>
                             <select id="node-type-select">
-                                <option value="concept">CONCEPT</option>
-                                <option value="entity">ENTITY</option>
+                                <option value="idea">IDEA</option>
+                                <option value="topic">TOPIC</option>
+                                <option value="note">NOTE</option>
                                 <option value="rule">RULE</option>
-                                <option value="state">STATE</option>
                                 <option value="event">EVENT</option>
-                                <option value="property">PROPERTY</option>
+                                <option value="detail">DETAIL</option>
                             </select>
                         </div>
                         <div class="field">
@@ -235,9 +310,13 @@
                                 </div>
                             </div>
                             <div id="content-status" class="content-status"></div>
-                            <textarea id="node-content" rows="12" placeholder="Write page content..."></textarea>
+                            <div class="content-editor-wrap">
+                                <textarea id="node-content" rows="12" placeholder="Write page content... Type [[ to link"></textarea>
+                                <div id="wiki-autocomplete" class="wiki-autocomplete hidden"></div>
+                            </div>
                             <div id="content-history-bar" class="content-history-bar">
                                 <span id="content-history-label" class="stat">STATE 1/1</span>
+                                <span id="word-count" class="stat"></span>
                             </div>
                         </div>
                         <div class="field">
@@ -256,6 +335,12 @@
                                 <span>CONNECTIONS</span>
                             </div>
                             <div id="node-connections-list"></div>
+                        </div>
+                        <div class="field-section">
+                            <div class="field-section-header">
+                                <span>BACKLINKS</span>
+                            </div>
+                            <div id="node-backlinks-list" class="backlinks-list"></div>
                         </div>
                         <div class="field-section">
                             <div class="field-section-header">

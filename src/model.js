@@ -3,12 +3,12 @@
 // ============================================
 
 const NODE_TYPES = {
-    concept:  { label: 'Concept',  color: '#b0b0b0', glow: 'rgba(176,176,176,0.15)',  shape: 'circle' },
-    entity:   { label: 'Entity',   color: '#d4d4d4', glow: 'rgba(212,212,212,0.15)',   shape: 'roundRect' },
-    rule:     { label: 'Rule',     color: '#8a8a8a', glow: 'rgba(138,138,138,0.15)',   shape: 'diamond' },
-    state:    { label: 'State',    color: '#c8c8c8', glow: 'rgba(200,200,200,0.15)',   shape: 'hexagon' },
-    event:    { label: 'Event',    color: '#707070', glow: 'rgba(112,112,112,0.15)',   shape: 'triangle' },
-    property: { label: 'Property', color: '#9e9e9e', glow: 'rgba(158,158,158,0.15)',   shape: 'rect' },
+    idea:     { label: 'Idea',    color: '#b0b0b0', glow: 'rgba(176,176,176,0.15)',  shape: 'circle' },
+    topic:    { label: 'Topic',   color: '#d4d4d4', glow: 'rgba(212,212,212,0.15)',  shape: 'roundRect' },
+    note:     { label: 'Note',    color: '#c8c8c8', glow: 'rgba(200,200,200,0.15)',  shape: 'hexagon' },
+    rule:     { label: 'Rule',    color: '#8a8a8a', glow: 'rgba(138,138,138,0.15)',  shape: 'diamond' },
+    event:    { label: 'Event',   color: '#707070', glow: 'rgba(112,112,112,0.15)',  shape: 'triangle' },
+    detail:   { label: 'Detail',  color: '#9e9e9e', glow: 'rgba(158,158,158,0.15)',  shape: 'rect' },
 };
 
 let _idCounter = 0;

@@ -15,9 +15,23 @@ class ReflectApp {
         this.dragState = null;
         this.dragStart = { x: 0, y: 0 };
         this.lastMouse = { x: 0, y: 0 };
+        this._splitPaneMode = false;
+
+        // Mode: 'note' or 'debate'
+        this.captureMode = 'note';
+        this.debateModelA = 'gemini-2.5-pro';
+        this.debateModelB = 'gemini-3-pro-preview';
+        this._debateRunning = false;
 
         // Content state tree: nodeId -> { states: [string], index: number }
         this.contentHistory = new Map();
+
+        // Starred node IDs
+        this.starredNodes = new Set(JSON.parse(localStorage.getItem('reflect-starred') || '[]'));
+
+        // Graph type filter
+        this.typeFilter = new Set(['idea', 'topic', 'note', 'rule', 'event', 'detail']);
+        this.renderer.typeFilter = this.typeFilter;
 
         this._bindCanvas();
         this._bindUI();
@@ -38,11 +52,13 @@ class ReflectApp {
             this._updateStats();
             this._updateEmptyState();
             this._renderPagesTree();
+            this._renderStarredList();
         });
 
         this._updateStats();
         this._updateEmptyState();
         this._renderPagesTree();
+        this._renderStarredList();
     }
 
     // ======================== CANVAS EVENTS ========================
@@ -207,7 +223,7 @@ class ReflectApp {
             return;
         }
         const wp = this.renderer.screenToWorld(pos.x, pos.y);
-        const newNode = this.model.addNode('concept', wp.x, wp.y, '');
+        const newNode = this.model.addNode('idea', wp.x, wp.y, '');
         this._clearSelection();
         this._selectNode(newNode, true);
         this._openInspector(newNode);
@@ -336,7 +352,7 @@ class ReflectApp {
     _showNodeInspector(node) {
         const panel = document.getElementById('inspector-node');
         panel.classList.remove('hidden');
-        document.getElementById('inspector-title').textContent = node.type === 'concept' ? 'PAGE EDITOR' : 'NODE INSPECTOR';
+        document.getElementById('inspector-title').textContent = node.type === 'idea' ? 'PAGE EDITOR' : 'NODE INSPECTOR';
 
         const labelInput = document.getElementById('node-label');
         const typeSelect = document.getElementById('node-type-select');
@@ -366,6 +382,14 @@ class ReflectApp {
 
         this._renderCustomProperties(node);
         this._renderConnections(node);
+        this._renderBacklinks(node);
+
+        // Star state
+        document.getElementById('btn-star-node').textContent =
+            this.starredNodes.has(node.id) ? '★' : '☆';
+
+        // Word count
+        this._updateWordCount(node.content || '');
 
         const update = () => {
             node.label = labelInput.value;
@@ -603,12 +627,7 @@ class ReflectApp {
         // Search
         const searchInput = document.getElementById('search-input');
         searchInput.addEventListener('input', () => {
-            const q = searchInput.value.trim();
-            if (!q) { this._clearSearch(); return; }
-            const results = this.model.search(q);
-            this._clearSelection();
-            results.forEach(n => this._selectNode(n, true));
-            if (results.length === 1) this.renderer.panTo(results[0].x, results[0].y);
+            this._doSearch(searchInput.value.trim());
         });
 
         // Add custom property
@@ -656,7 +675,7 @@ class ReflectApp {
             const wp = this.renderer.screenToWorld(this.renderer.viewW / 2, this.renderer.viewH / 2);
             wp.x += (Math.random() - 0.5) * 100;
             wp.y += (Math.random() - 0.5) * 100;
-            const node = this.model.addNode('concept', wp.x, wp.y, 'Untitled Page');
+            const node = this.model.addNode('idea', wp.x, wp.y, 'Untitled Page');
             this._clearSelection();
             this._selectNode(node);
             this._openInspector(node);
@@ -689,16 +708,56 @@ class ReflectApp {
         const modelMenu = document.getElementById('model-menu');
         const modelLabel = document.getElementById('model-label');
 
+        // Mode toggle
+        document.querySelectorAll('.mode-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                this.captureMode = btn.dataset.mode;
+                document.getElementById('note-controls').classList.toggle('hidden', btn.dataset.mode !== 'note');
+                document.getElementById('debate-controls').classList.toggle('hidden', btn.dataset.mode !== 'debate');
+                document.getElementById('thought-input').placeholder =
+                    btn.dataset.mode === 'debate' ? 'Enter a debate topic...' : 'Stream of consciousness...';
+            });
+        });
+
+        // Shared model menu target
+        this._modelMenuTarget = 'note'; // 'note', 'a', or 'b'
+
         document.getElementById('model-btn').addEventListener('click', (e) => {
             e.stopPropagation();
+            this._modelMenuTarget = 'note';
+            modelMenu.classList.toggle('hidden');
+        });
+
+        document.getElementById('model-a-btn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            this._modelMenuTarget = 'a';
+            modelMenu.classList.toggle('hidden');
+        });
+
+        document.getElementById('model-b-btn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            this._modelMenuTarget = 'b';
             modelMenu.classList.toggle('hidden');
         });
 
         document.querySelectorAll('.thought-popup-item').forEach(item => {
             item.addEventListener('click', () => {
-                this.selectedModel = item.dataset.model;
-                modelLabel.textContent = item.textContent;
-                // Mark active
+                const model = item.dataset.model;
+                const label = item.textContent;
+
+                if (this._modelMenuTarget === 'note') {
+                    this.selectedModel = model;
+                    modelLabel.textContent = label;
+                } else if (this._modelMenuTarget === 'a') {
+                    this.debateModelA = model;
+                    document.getElementById('model-a-label').textContent = '🔴 A: ' + label.replace(/[◆⚡◇○◈]\s*/, '');
+                } else if (this._modelMenuTarget === 'b') {
+                    this.debateModelB = model;
+                    document.getElementById('model-b-label').textContent = '🔵 B: ' + label.replace(/[◆⚡◇○◈]\s*/, '');
+                }
+
                 document.querySelectorAll('.thought-popup-item').forEach(i => i.classList.remove('active'));
                 item.classList.add('active');
                 modelMenu.classList.add('hidden');
@@ -735,6 +794,12 @@ class ReflectApp {
         document.getElementById('page-view-close').addEventListener('click', () => {
             document.getElementById('page-view-overlay').classList.add('hidden');
         });
+        document.getElementById('btn-split-pane').addEventListener('click', () => {
+            this._openSplitPane();
+        });
+        document.getElementById('split-pane-close').addEventListener('click', () => {
+            document.getElementById('split-pane').classList.add('hidden');
+        });
         document.getElementById('page-view-overlay').addEventListener('click', (e) => {
             if (e.target === e.currentTarget) {
                 e.currentTarget.classList.add('hidden');
@@ -748,10 +813,66 @@ class ReflectApp {
             if (e.key === 'Enter') this._confirmModal();
             if (e.key === 'Escape') this._hideModal();
         });
+
+        // Star / Bookmark
+        document.getElementById('btn-star-node').addEventListener('click', () => {
+            const nodeId = [...this.selectedNodes][0];
+            if (!nodeId) return;
+            if (this.starredNodes.has(nodeId)) {
+                this.starredNodes.delete(nodeId);
+                document.getElementById('btn-star-node').textContent = '☆';
+            } else {
+                this.starredNodes.add(nodeId);
+                document.getElementById('btn-star-node').textContent = '★';
+            }
+            localStorage.setItem('reflect-starred', JSON.stringify([...this.starredNodes]));
+            this._renderStarredList();
+        });
+
+        // Export Markdown
+        document.getElementById('btn-export-md').addEventListener('click', () => {
+            this._exportMarkdown();
+        });
+
+        // Graph filters
+        document.querySelectorAll('.graph-filters input[type="checkbox"]').forEach(cb => {
+            cb.addEventListener('change', () => {
+                const type = cb.dataset.filter;
+                if (cb.checked) {
+                    this.typeFilter.add(type);
+                } else {
+                    this.typeFilter.delete(type);
+                }
+                this.renderer.markDirty();
+            });
+        });
+
+        // Wiki autocomplete on content textarea
+        const contentTA = document.getElementById('node-content');
+        contentTA.addEventListener('input', () => {
+            this._handleWikiAutocomplete(contentTA);
+            this._updateWordCount(contentTA.value);
+        });
+        contentTA.addEventListener('keydown', (e) => {
+            this._handleWikiKeydown(e, contentTA);
+        });
     }
 
     _bindKeyboard() {
         document.addEventListener('keydown', e => {
+            // Cmd+P — Quick Switcher (always intercept)
+            if ((e.key === 'p' || e.key === 'P') && (e.ctrlKey || e.metaKey)) {
+                e.preventDefault();
+                this._toggleQuickSwitcher();
+                return;
+            }
+
+            // Escape from quick switcher
+            if (e.key === 'Escape' && !document.getElementById('quick-switcher').classList.contains('hidden')) {
+                this._closeQuickSwitcher();
+                return;
+            }
+
             if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') {
                 if (e.key === 'Escape') e.target.blur();
                 return;
@@ -794,6 +915,10 @@ class ReflectApp {
             if (e.key === '0' && (e.ctrlKey || e.metaKey)) {
                 e.preventDefault();
                 this.renderer.fitView();
+            }
+            if ((e.key === 'd' || e.key === 'D') && (e.ctrlKey || e.metaKey)) {
+                e.preventDefault();
+                this._createDailyNote();
             }
         });
     }
@@ -879,6 +1004,25 @@ class ReflectApp {
             case 'fit-view':
                 this.renderer.fitView();
                 break;
+            case 'view-page':
+                if (this._ctxTarget) {
+                    this._clearSelection();
+                    this._selectNode(this._ctxTarget);
+                    this._openPageView();
+                }
+                break;
+            case 'template-concept':
+                if (this._ctxTarget) this._applyTemplate(this._ctxTarget, 'concept');
+                break;
+            case 'template-project':
+                if (this._ctxTarget) this._applyTemplate(this._ctxTarget, 'project');
+                break;
+            case 'template-meeting':
+                if (this._ctxTarget) this._applyTemplate(this._ctxTarget, 'meeting');
+                break;
+            case 'template-research':
+                if (this._ctxTarget) this._applyTemplate(this._ctxTarget, 'research');
+                break;
         }
     }
 
@@ -916,12 +1060,17 @@ class ReflectApp {
         input.value = '';
         input.style.height = 'auto';
 
+        if (this.captureMode === 'debate') {
+            this._startDebate(text);
+            return;
+        }
+
         const wp = this.renderer.screenToWorld(this.renderer.viewW / 2, this.renderer.viewH / 2);
         wp.x += (Math.random() - 0.5) * 200;
         wp.y += (Math.random() - 0.5) * 200;
 
         const tempLabel = text.split('\n')[0].slice(0, 40) + (text.length > 40 ? '…' : '');
-        const node = this.model.addNode('concept', wp.x, wp.y, tempLabel);
+        const node = this.model.addNode('idea', wp.x, wp.y, tempLabel);
         node.content = text;
 
         this._clearSelection();
@@ -940,19 +1089,19 @@ class ReflectApp {
 
 Return your response in EXACTLY this format (every field required):
 TITLE: <concise 3-6 word title>
-TYPE: <one of: concept, entity, rule, state, event, property>
+TYPE: <one of: idea, topic, note, rule, event, detail>
 DESCRIPTION: <1-2 sentence summary>
 PROPERTIES: <key=value pairs, comma separated, e.g. domain=physics, complexity=high, related_to=quantum mechanics>
 ---
 <expanded content: well-structured page with key points, implications, connections to explore. 3-8 paragraphs, plain text, no markdown headers. Be specific and factual.>
 
 Type definitions:
-- concept: abstract ideas, theories, principles
-- entity: concrete things, people, places, systems, tools
-- rule: laws, constraints, if-then relationships, guidelines
-- state: conditions, statuses, configurations
-- event: occurrences, actions, triggers
-- property: attributes, measurements, characteristics
+- idea: abstract thoughts, theories, principles, concepts
+- topic: concrete things, people, places, systems, subjects
+- note: general observations, status updates, reflections
+- rule: laws, constraints, guidelines, if-then relationships
+- event: occurrences, actions, triggers, things that happen
+- detail: specific facts, measurements, data points, attributes
 
 Thought: "${text.replace(/"/g, '\\"')}"`;
 
@@ -987,7 +1136,7 @@ Thought: "${text.replace(/"/g, '\\"')}"`;
                 const typeMatch = fullResponse.match(/^TYPE:\s*(.+)/m);
                 if (typeMatch) {
                     const type = typeMatch[1].trim().toLowerCase();
-                    const validTypes = ['concept', 'entity', 'rule', 'state', 'event', 'property'];
+                    const validTypes = ['idea', 'topic', 'note', 'rule', 'event', 'detail'];
                     if (validTypes.includes(type) && node.type !== type) {
                         node.type = type;
                         this.renderer.markDirty();
@@ -1185,6 +1334,182 @@ Write concise, substantive paragraphs. Plain text only, no markdown headers. Be 
         window.electronAPI.geminiStream(prompt, true, this.selectedModel);
     }
 
+    // ======================== QUICK SWITCHER ========================
+
+    _toggleQuickSwitcher() {
+        const qs = document.getElementById('quick-switcher');
+        if (qs.classList.contains('hidden')) {
+            qs.classList.remove('hidden');
+            const input = document.getElementById('qs-input');
+            input.value = '';
+            input.focus();
+            this._qsIndex = 0;
+            this._qsResults = [];
+            this._renderQSResults('');
+
+            // Bind input events
+            input.oninput = () => this._renderQSResults(input.value);
+            input.onkeydown = (e) => {
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    this._qsIndex = Math.min(this._qsIndex + 1, this._qsResults.length - 1);
+                    this._highlightQSResult();
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    this._qsIndex = Math.max(this._qsIndex - 1, 0);
+                    this._highlightQSResult();
+                } else if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (this._qsResults[this._qsIndex]) {
+                        if (this._splitPaneMode) {
+                            this._openSplitPaneWith(this._qsResults[this._qsIndex]);
+                            this._splitPaneMode = false;
+                        } else {
+                            this._jumpToNode(this._qsResults[this._qsIndex]);
+                        }
+                        this._closeQuickSwitcher();
+                    }
+                }
+            };
+        } else {
+            this._closeQuickSwitcher();
+        }
+    }
+
+    _closeQuickSwitcher() {
+        document.getElementById('quick-switcher').classList.add('hidden');
+        document.getElementById('qs-input').oninput = null;
+        document.getElementById('qs-input').onkeydown = null;
+    }
+
+    _renderQSResults(query) {
+        const container = document.getElementById('qs-results');
+        const q = query.toLowerCase().trim();
+        let nodes = [...this.model.nodes.values()];
+
+        if (q) {
+            nodes = nodes
+                .map(n => ({
+                    node: n,
+                    score: (n.label.toLowerCase().includes(q) ? 3 : 0) +
+                           ((n.description || '').toLowerCase().includes(q) ? 1 : 0) +
+                           (n.type.includes(q) ? 1 : 0)
+                }))
+                .filter(r => r.score > 0)
+                .sort((a, b) => b.score - a.score)
+                .map(r => r.node);
+        } else {
+            // Show most recently modified
+            nodes = nodes.slice().sort((a, b) => (b._modified || 0) - (a._modified || 0));
+        }
+
+        this._qsResults = nodes.slice(0, 12);
+        this._qsIndex = 0;
+
+        if (this._qsResults.length === 0) {
+            container.innerHTML = '<div class="qs-empty">[ NO MATCHES ]</div>';
+            return;
+        }
+
+        container.innerHTML = this._qsResults.map((n, i) => {
+            const typeDef = NexusModel.NODE_TYPES[n.type] || NexusModel.NODE_TYPES.idea;
+            return `<div class="qs-result${i === 0 ? ' active' : ''}" data-idx="${i}">
+                <span class="qs-result-label">${this._esc(n.label)}</span>
+                <span class="qs-result-type">${typeDef.label}</span>
+            </div>`;
+        }).join('');
+
+        container.querySelectorAll('.qs-result').forEach(el => {
+            el.addEventListener('click', () => {
+                const idx = parseInt(el.dataset.idx);
+                this._jumpToNode(this._qsResults[idx]);
+                this._closeQuickSwitcher();
+            });
+        });
+    }
+
+    _highlightQSResult() {
+        document.querySelectorAll('.qs-result').forEach((el, i) => {
+            el.classList.toggle('active', i === this._qsIndex);
+            if (i === this._qsIndex) el.scrollIntoView({ block: 'nearest' });
+        });
+    }
+
+    _jumpToNode(node) {
+        this._clearSelection();
+        this._selectNode(node);
+        this.renderer.panTo(node.x, node.y);
+        this._openInspector(node);
+    }
+
+    _esc(str) {
+        const d = document.createElement('div');
+        d.textContent = str;
+        return d.innerHTML;
+    }
+
+    // ======================== BACKLINKS ========================
+
+    _renderBacklinks(node) {
+        const container = document.getElementById('node-backlinks-list');
+        if (!container) return;
+
+        const backlinks = [];
+        const label = node.label.toLowerCase();
+
+        this.model.nodes.forEach(other => {
+            if (other.id === node.id) return;
+
+            // Check for [[wiki link]] references
+            const wikiPattern = `[[${node.label}]]`;
+            const contentLower = (other.content || '').toLowerCase();
+            const notesLower = (other.notes || '').toLowerCase();
+
+            const hasWikiLink = contentLower.includes(wikiPattern.toLowerCase()) ||
+                                notesLower.includes(wikiPattern.toLowerCase());
+
+            // Check for plain text mention
+            const hasMention = contentLower.includes(label) || notesLower.includes(label);
+
+            if (hasWikiLink || hasMention) {
+                // Extract context snippet
+                const text = other.content || other.notes || '';
+                const idx = text.toLowerCase().indexOf(label);
+                let context = '';
+                if (idx !== -1) {
+                    const start = Math.max(0, idx - 30);
+                    const end = Math.min(text.length, idx + label.length + 30);
+                    context = (start > 0 ? '...' : '') +
+                              text.slice(start, end).replace(/\n/g, ' ') +
+                              (end < text.length ? '...' : '');
+                }
+
+                backlinks.push({ node: other, context, isWiki: hasWikiLink });
+            }
+        });
+
+        if (backlinks.length === 0) {
+            container.innerHTML = '<div class="backlinks-empty">[ NONE ]</div>';
+            return;
+        }
+
+        container.innerHTML = backlinks.map(bl => `
+            <div class="backlink-item" data-id="${bl.node.id}">
+                <div>
+                    <div class="backlink-label">${bl.isWiki ? '⟦ ' : ''}${this._esc(bl.node.label)}${bl.isWiki ? ' ⟧' : ''}</div>
+                    ${bl.context ? `<div class="backlink-context">${this._esc(bl.context)}</div>` : ''}
+                </div>
+            </div>
+        `).join('');
+
+        container.querySelectorAll('.backlink-item').forEach(el => {
+            el.addEventListener('click', () => {
+                const target = this.model.nodes.get(el.dataset.id);
+                if (target) this._jumpToNode(target);
+            });
+        });
+    }
+
     // ======================== PAGE VIEW ========================
 
     _openPageView() {
@@ -1193,12 +1518,622 @@ Write concise, substantive paragraphs. Plain text only, no markdown headers. Be 
         const node = this.model.nodes.get(nodeId);
         if (!node) return;
 
-        const typeDef = NexusModel.NODE_TYPES[node.type] || NexusModel.NODE_TYPES.concept;
+        const typeDef = NexusModel.NODE_TYPES[node.type] || NexusModel.NODE_TYPES.idea;
         document.getElementById('page-view-title').textContent = node.label;
         document.getElementById('page-view-type').textContent = typeDef.label;
         document.getElementById('page-view-desc').textContent = node.description || '';
-        document.getElementById('page-view-content').textContent = node.content || '[ No content ]';
+        const contentEl = document.getElementById('page-view-content');
+        contentEl.innerHTML = this._renderMarkdown(node.content || '[ No content ]');
+
+        // Bind wiki link clicks in page view
+        contentEl.querySelectorAll('.wiki-link').forEach(link => {
+            link.addEventListener('click', () => {
+                const target = this._findNodeByLabel(link.dataset.target);
+                if (target) {
+                    document.getElementById('page-view-overlay').classList.add('hidden');
+                    this._jumpToNode(target);
+                }
+            });
+        });
+
+        // Bind tag clicks in page view
+        contentEl.querySelectorAll('.tag-link').forEach(tag => {
+            tag.addEventListener('click', () => {
+                document.getElementById('page-view-overlay').classList.add('hidden');
+                document.getElementById('search-input').value = tag.dataset.tag;
+                this._doSearch(tag.dataset.tag);
+            });
+        });
+        // Bind hover preview on wiki links
+        contentEl.querySelectorAll('.wiki-link').forEach(link => {
+            link.addEventListener('mouseenter', (e) => this._showHoverPreview(e, link.dataset.target));
+            link.addEventListener('mouseleave', () => this._hideHoverPreview());
+        });
+
+        // Build outline
+        this._buildOutline(node.content || '');
+
+        // Reset split pane
+        document.getElementById('split-pane').classList.add('hidden');
+
         document.getElementById('page-view-overlay').classList.remove('hidden');
+    }
+
+    _buildOutline(content) {
+        const headings = [];
+        content.split('\n').forEach((line, i) => {
+            const m3 = line.match(/^### (.+)/);
+            const m2 = line.match(/^## (.+)/);
+            const m1 = line.match(/^# (.+)/);
+            if (m1) headings.push({ level: 1, text: m1[1], line: i });
+            else if (m2) headings.push({ level: 2, text: m2[1], line: i });
+            else if (m3) headings.push({ level: 3, text: m3[1], line: i });
+        });
+
+        const outlineEl = document.getElementById('outline-items');
+        if (headings.length === 0) {
+            outlineEl.innerHTML = '<div class="outline-item" style="color:var(--text-disabled)">No headings</div>';
+            return;
+        }
+
+        outlineEl.innerHTML = headings.map(h =>
+            `<div class="outline-item" data-level="${h.level}" data-line="${h.line}">${this._esc(h.text)}</div>`
+        ).join('');
+
+        outlineEl.querySelectorAll('.outline-item').forEach(el => {
+            el.addEventListener('click', () => {
+                // Scroll to the heading in the content
+                const contentEl = document.getElementById('page-view-content');
+                const hLevel = `h${el.dataset.level}`;
+                const headingEls = contentEl.querySelectorAll(hLevel);
+                const targetText = el.textContent;
+                for (const h of headingEls) {
+                    if (h.textContent.trim() === targetText.trim()) {
+                        h.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        break;
+                    }
+                }
+            });
+        });
+    }
+
+    _showHoverPreview(e, targetName) {
+        const node = this._findNodeByLabel(targetName);
+        if (!node) return;
+
+        const preview = document.getElementById('hover-preview');
+        document.getElementById('hover-preview-title').textContent = node.label;
+        document.getElementById('hover-preview-desc').textContent = node.description || '';
+        document.getElementById('hover-preview-snippet').textContent =
+            (node.content || '').slice(0, 200) + (node.content && node.content.length > 200 ? '...' : '');
+
+        preview.style.left = (e.clientX + 12) + 'px';
+        preview.style.top = (e.clientY + 12) + 'px';
+        preview.classList.remove('hidden');
+    }
+
+    _hideHoverPreview() {
+        document.getElementById('hover-preview').classList.add('hidden');
+    }
+
+    _openSplitPane() {
+        // Open quick switcher to pick second page
+        this._splitPaneMode = true;
+        this._toggleQuickSwitcher();
+    }
+
+    _openSplitPaneWith(node) {
+        const pane = document.getElementById('split-pane');
+        document.getElementById('split-pane-title').textContent = node.label;
+        const contentEl = document.getElementById('split-pane-content');
+        contentEl.innerHTML = this._renderMarkdown(node.content || '[ No content ]');
+
+        // Bind wiki links in split pane
+        contentEl.querySelectorAll('.wiki-link').forEach(link => {
+            link.addEventListener('click', () => {
+                const target = this._findNodeByLabel(link.dataset.target);
+                if (target) this._openSplitPaneWith(target);
+            });
+        });
+
+        pane.classList.remove('hidden');
+    }
+
+    _renderMarkdown(text, depth = 0) {
+        // Escape HTML
+        let html = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+        // Embeds ![[Node Name]] — only if not too deep (prevent infinite recursion)
+        if (depth < 2) {
+            html = html.replace(/!\[\[([^\]]+)\]\]/g, (_, name) => {
+                const target = this._findNodeByLabel(name);
+                if (target && target.content) {
+                    const innerHtml = this._renderMarkdown(target.content, depth + 1);
+                    return `<div class="embed-block"><div class="embed-title">⊞ ${this._esc(name)}</div><div class="embed-content">${innerHtml}</div></div>`;
+                }
+                return `<div class="embed-block"><div class="embed-title">⊞ ${this._esc(name)} (not found)</div></div>`;
+            });
+        }
+
+        // Wiki links [[Node Name]]
+        html = html.replace(/\[\[([^\]]+)\]\]/g, (_, name) => {
+            const exists = this._findNodeByLabel(name);
+            return `<span class="wiki-link${exists ? '' : ' wiki-link-missing'}" data-target="${name}">[[${name}]]</span>`;
+        });
+
+        // Tags #tag
+        html = html.replace(/(^|\s)#([a-zA-Z0-9_-]+)/g, (_, pre, tag) => {
+            return `${pre}<span class="tag-link" data-tag="#${tag}">#${tag}</span>`;
+        });
+
+        // Headings
+        html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+        html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+        html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+
+        // Bold and italic
+        html = html.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
+        html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+        html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+
+        // Inline code
+        html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+
+        // Horizontal rule
+        html = html.replace(/^---$/gm, '<hr>');
+
+        // Checkboxes
+        html = html.replace(/^- \[x\] (.+)$/gm, '<li class="checkbox checked">☑ $1</li>');
+        html = html.replace(/^- \[ \] (.+)$/gm, '<li class="checkbox">☐ $1</li>');
+
+        // Unordered lists
+        html = html.replace(/^- (.+)$/gm, '<li>$1</li>');
+        html = html.replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>');
+
+        // Line breaks (preserve double newlines as paragraphs)
+        html = html.replace(/\n\n/g, '</p><p>');
+        html = html.replace(/\n/g, '<br>');
+        html = '<p>' + html + '</p>';
+
+        // Clean up empty paragraphs
+        html = html.replace(/<p><\/p>/g, '');
+        html = html.replace(/<p>(<h[1-3]>)/g, '$1');
+        html = html.replace(/(<\/h[1-3]>)<\/p>/g, '$1');
+        html = html.replace(/<p>(<ul>)/g, '$1');
+        html = html.replace(/(<\/ul>)<\/p>/g, '$1');
+        html = html.replace(/<p>(<hr>)<\/p>/g, '$1');
+
+        return html;
+    }
+
+    _findNodeByLabel(label) {
+        const lower = label.toLowerCase();
+        for (const node of this.model.nodes.values()) {
+            if (node.label.toLowerCase() === lower) return node;
+        }
+        return null;
+    }
+
+    // ======================== DEBATE ENGINE ========================
+
+    async _startDebate(topic) {
+        if (this._debateRunning) {
+            this._status('[DEBATE ALREADY RUNNING]');
+            return;
+        }
+        if (!window.electronAPI || !window.electronAPI.geminiRequest) {
+            this._status('[NO AI AVAILABLE]');
+            return;
+        }
+
+        this._debateRunning = true;
+        const rounds = parseInt(document.getElementById('debate-rounds').value) || 5;
+
+        // Create the topic node at center
+        const wp = this.renderer.screenToWorld(this.renderer.viewW / 2, this.renderer.viewH / 2);
+        const topicNode = this.model.addNode('topic', wp.x, wp.y - 120, topic);
+        topicNode.description = 'Debate topic';
+        topicNode.properties = {
+            mode: 'debate',
+            model_a: this.debateModelA,
+            model_b: this.debateModelB,
+            rounds: rounds.toString()
+        };
+        topicNode._loading = true;
+        this.renderer.markDirty();
+
+        this._clearSelection();
+        this._selectNode(topicNode);
+        this._status(`[DEBATE: ${rounds} ROUNDS]`);
+
+        const history = [];
+        let lastNodeA = topicNode;
+        let lastNodeB = topicNode;
+
+        try {
+            for (let round = 1; round <= rounds; round++) {
+                this._status(`[ROUND ${round}/${rounds} — MODEL A]`);
+
+                // Model A argues
+                const promptA = this._buildDebatePrompt(topic, history, 'A', round, rounds);
+                const responseA = await window.electronAPI.geminiRequest(promptA, this.debateModelA);
+
+                const nodeA = this.model.addNode('idea', wp.x - 160, wp.y + round * 120, `R${round} — A`);
+                nodeA.label = `Round ${round}: Model A`;
+                nodeA.description = `${this.debateModelA} — Round ${round}`;
+                nodeA.content = responseA;
+                nodeA.properties = { side: 'A', round: round.toString(), model: this.debateModelA };
+
+                // Edge from previous to this
+                this.model.addEdge(lastNodeA.id, nodeA.id, round === 1 ? 'opens' : 'responds');
+                lastNodeA = nodeA;
+
+                history.push({ role: 'A', round, content: responseA });
+                this.renderer.markDirty();
+
+                // Model B argues
+                this._status(`[ROUND ${round}/${rounds} — MODEL B]`);
+                const promptB = this._buildDebatePrompt(topic, history, 'B', round, rounds);
+                const responseB = await window.electronAPI.geminiRequest(promptB, this.debateModelB);
+
+                const nodeB = this.model.addNode('idea', wp.x + 160, wp.y + round * 120, `R${round} — B`);
+                nodeB.label = `Round ${round}: Model B`;
+                nodeB.description = `${this.debateModelB} — Round ${round}`;
+                nodeB.content = responseB;
+                nodeB.properties = { side: 'B', round: round.toString(), model: this.debateModelB };
+
+                // Edge from previous B to this B, and cross-edge from A to B
+                this.model.addEdge(lastNodeB.id, nodeB.id, round === 1 ? 'opens' : 'responds');
+                this.model.addEdge(nodeA.id, nodeB.id, `counters`);
+                lastNodeB = nodeB;
+
+                history.push({ role: 'B', round, content: responseB });
+                this.renderer.markDirty();
+            }
+
+            // RESOLUTION: Both models have argued. Now synthesize.
+            this._status('[SYNTHESIZING RESOLUTION...]');
+
+            const resolutionPrompt = this._buildResolutionPrompt(topic, history);
+            const resolution = await window.electronAPI.geminiRequest(resolutionPrompt, this.debateModelA);
+
+            const resNode = this.model.addNode('rule', wp.x, wp.y + (rounds + 1) * 120, 'Resolution');
+            resNode.label = `Resolution: ${topic.slice(0, 30)}`;
+            resNode.description = `Fundamental truth document — ${rounds} rounds of debate`;
+            resNode.content = resolution;
+            resNode.properties = {
+                type: 'resolution',
+                model_a: this.debateModelA,
+                model_b: this.debateModelB,
+                rounds: rounds.toString(),
+                topic: topic
+            };
+
+            // Connect last A and B to resolution
+            this.model.addEdge(lastNodeA.id, resNode.id, 'synthesizes');
+            this.model.addEdge(lastNodeB.id, resNode.id, 'synthesizes');
+            this.model.addEdge(topicNode.id, resNode.id, 'resolves');
+
+            topicNode._loading = false;
+            topicNode.content = `# Debate: ${topic}\n\nModels: ${this.debateModelA} vs ${this.debateModelB}\nRounds: ${rounds}\n\nSee [[Resolution: ${topic.slice(0, 30)}]] for the final truth document.`;
+            this.renderer.markDirty();
+
+            this._clearSelection();
+            this._selectNode(resNode);
+            this._openInspector(resNode);
+            this.renderer.panTo(resNode.x, resNode.y);
+            this._status('[DEBATE RESOLVED]', 'success');
+
+        } catch (err) {
+            topicNode._loading = false;
+            this._status('[DEBATE ERROR: ' + err.message + ']');
+            console.error('Debate error:', err);
+        }
+
+        this._debateRunning = false;
+    }
+
+    _buildDebatePrompt(topic, history, side, round, totalRounds) {
+        const opponent = side === 'A' ? 'B' : 'A';
+        let context = `You are Debater ${side} in an intellectual debate. The topic is:\n\n"${topic}"\n\n`;
+
+        if (history.length > 0) {
+            context += `Previous arguments:\n\n`;
+            history.forEach(h => {
+                context += `--- ${h.role === side ? 'YOUR' : 'OPPONENT'} (Round ${h.round}) ---\n${h.content}\n\n`;
+            });
+        }
+
+        if (round === 1) {
+            context += `This is Round 1 of ${totalRounds}. Present your opening argument. Be substantive, cite reasoning, and stake out a clear position. 3-5 paragraphs.`;
+        } else if (round === totalRounds) {
+            context += `This is the FINAL round (${round}/${totalRounds}). You must now identify areas of genuine agreement with your opponent while maintaining intellectual honesty about remaining disagreements. Focus on convergence toward truth. 3-5 paragraphs.`;
+        } else {
+            context += `This is Round ${round} of ${totalRounds}. Directly respond to your opponent's latest argument. Acknowledge valid points, challenge weak ones, refine your position. Be rigorous but fair. 3-5 paragraphs.`;
+        }
+
+        return context;
+    }
+
+    _buildResolutionPrompt(topic, history) {
+        let prompt = `You are a neutral synthesizer. Two AI models have debated the following topic:\n\n"${topic}"\n\nHere is the complete debate transcript:\n\n`;
+
+        history.forEach(h => {
+            prompt += `=== DEBATER ${h.role} — ROUND ${h.round} ===\n${h.content}\n\n`;
+        });
+
+        prompt += `Now synthesize a FUNDAMENTAL TRUTH DOCUMENT — a resolution that captures:
+
+1. **Core Truth**: What both sides ultimately agree on
+2. **Key Insights**: The strongest arguments from each side
+3. **Resolved Tensions**: Where seeming disagreements are actually compatible
+4. **Remaining Questions**: Genuine open questions that merit further investigation
+5. **Conclusion**: A clear, actionable statement of the established truth
+
+Write this as a structured document with clear headings. Be precise, honest, and intellectually rigorous. This document should stand alone as a definitive analysis of the topic. Do NOT hedge unnecessarily — state what is true.`;
+
+        return prompt;
+    }
+
+    // ======================== DAILY NOTES ========================
+
+    _createDailyNote() {
+        const today = new Date();
+        const dateStr = today.toISOString().split('T')[0]; // YYYY-MM-DD
+        const dayName = today.toLocaleDateString('en-US', { weekday: 'long' });
+        const label = `${dateStr}`;
+
+        // Check if today's note already exists
+        const existing = this._findNodeByLabel(label);
+        if (existing) {
+            this._jumpToNode(existing);
+            this._status('[DAILY NOTE EXISTS]');
+            return;
+        }
+
+        const wp = this.renderer.screenToWorld(this.renderer.viewW / 2, this.renderer.viewH / 2);
+        const node = this.model.addNode('event', wp.x, wp.y, label);
+        node.description = `Daily note for ${dayName}, ${dateStr}`;
+        node.content = `# ${dayName}\n\n## Tasks\n- \n\n## Notes\n\n\n## Reflections\n\n`;
+        node.properties = { date: dateStr, type: 'daily-note' };
+
+        this._clearSelection();
+        this._selectNode(node);
+        this._jumpToNode(node);
+        this._status('[DAILY NOTE CREATED]', 'success');
+    }
+
+    // ======================== TAG SEARCH ========================
+
+    _doSearch(query) {
+        const q = query.toLowerCase().trim();
+        if (!q) { this._clearSearch(); return; }
+
+        // Tag search
+        if (q.startsWith('#')) {
+            const tag = q;
+            const results = [];
+            this.model.nodes.forEach(n => {
+                const content = `${n.content} ${n.notes} ${n.description}`.toLowerCase();
+                if (content.includes(tag)) results.push(n);
+            });
+            this._clearSelection();
+            results.forEach(n => this._selectNode(n, true));
+            if (results.length > 0) {
+                this.renderer.panTo(results[0].x, results[0].y);
+            }
+            this._status(`[${results.length} TAGGED]`);
+            return;
+        }
+
+        // Regular search
+        const results = this.model.search(q);
+        this._clearSelection();
+        results.forEach(n => this._selectNode(n, true));
+        if (results.length > 0) {
+            this.renderer.panTo(results[0].x, results[0].y);
+        }
+        this._status(`[${results.length} FOUND]`);
+    }
+
+    // ======================== TEMPLATES ========================
+
+    _applyTemplate(node, templateName) {
+        const templates = {
+            'concept': {
+                content: `# ${node.label}\n\n## Definition\n\n\n## Key Principles\n- \n\n## Related Concepts\n- \n\n## Applications\n\n`,
+                properties: { status: 'draft' }
+            },
+            'entity': {
+                content: `# ${node.label}\n\n## Overview\n\n\n## Properties\n- \n\n## Relationships\n- \n\n## History\n\n`,
+                properties: { status: 'draft' }
+            },
+            'project': {
+                content: `# ${node.label}\n\n## Objective\n\n\n## Tasks\n- [ ] \n\n## Resources\n- \n\n## Timeline\n\n## Notes\n\n`,
+                properties: { status: 'active', priority: 'medium' }
+            },
+            'meeting': {
+                content: `# ${node.label}\n\n## Date\n${new Date().toISOString().split('T')[0]}\n\n## Attendees\n- \n\n## Agenda\n- \n\n## Decisions\n- \n\n## Action Items\n- [ ] \n`,
+                properties: { date: new Date().toISOString().split('T')[0] }
+            },
+            'research': {
+                content: `# ${node.label}\n\n## Question\n\n\n## Hypothesis\n\n\n## Findings\n- \n\n## Sources\n- \n\n## Conclusions\n\n`,
+                properties: { status: 'draft', domain: '' }
+            }
+        };
+
+        const tmpl = templates[templateName];
+        if (!tmpl) return;
+
+        node.content = tmpl.content;
+        Object.assign(node.properties, tmpl.properties);
+
+        if (this.selectedNodes.has(node.id)) {
+            const contentEl = document.getElementById('node-content');
+            if (contentEl) contentEl.value = node.content;
+            this._renderCustomProperties(node);
+        }
+
+        this._status(`[TEMPLATE: ${templateName.toUpperCase()}]`, 'success');
+    }
+
+    // ======================== WIKI AUTOCOMPLETE ========================
+
+    _handleWikiAutocomplete(textarea) {
+        const pos = textarea.selectionStart;
+        const text = textarea.value.slice(0, pos);
+        const match = text.match(/\[\[([^\]]*)$/);
+
+        if (!match) {
+            document.getElementById('wiki-autocomplete').classList.add('hidden');
+            this._wikiAcItems = [];
+            return;
+        }
+
+        const query = match[1].toLowerCase();
+        const nodes = [...this.model.nodes.values()]
+            .filter(n => n.label.toLowerCase().includes(query))
+            .slice(0, 8);
+
+        this._wikiAcItems = nodes;
+        this._wikiAcIndex = 0;
+
+        const container = document.getElementById('wiki-autocomplete');
+        if (nodes.length === 0) {
+            container.classList.add('hidden');
+            return;
+        }
+
+        container.classList.remove('hidden');
+        container.innerHTML = nodes.map((n, i) =>
+            `<div class="wiki-ac-item${i === 0 ? ' active' : ''}" data-idx="${i}">${this._esc(n.label)}</div>`
+        ).join('');
+
+        container.querySelectorAll('.wiki-ac-item').forEach(el => {
+            el.addEventListener('click', () => {
+                this._insertWikiLink(textarea, nodes[parseInt(el.dataset.idx)].label);
+            });
+        });
+    }
+
+    _handleWikiKeydown(e, textarea) {
+        const container = document.getElementById('wiki-autocomplete');
+        if (container.classList.contains('hidden') || !this._wikiAcItems || this._wikiAcItems.length === 0) return;
+
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            this._wikiAcIndex = Math.min(this._wikiAcIndex + 1, this._wikiAcItems.length - 1);
+            container.querySelectorAll('.wiki-ac-item').forEach((el, i) =>
+                el.classList.toggle('active', i === this._wikiAcIndex));
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            this._wikiAcIndex = Math.max(this._wikiAcIndex - 1, 0);
+            container.querySelectorAll('.wiki-ac-item').forEach((el, i) =>
+                el.classList.toggle('active', i === this._wikiAcIndex));
+        } else if (e.key === 'Enter' || e.key === 'Tab') {
+            e.preventDefault();
+            this._insertWikiLink(textarea, this._wikiAcItems[this._wikiAcIndex].label);
+        } else if (e.key === 'Escape') {
+            container.classList.add('hidden');
+        }
+    }
+
+    _insertWikiLink(textarea, label) {
+        const pos = textarea.selectionStart;
+        const text = textarea.value;
+        const beforeMatch = text.slice(0, pos).lastIndexOf('[[');
+        if (beforeMatch === -1) return;
+
+        const before = text.slice(0, beforeMatch);
+        const after = text.slice(pos);
+        const newText = before + '[[' + label + ']]' + after;
+        textarea.value = newText;
+        const newPos = beforeMatch + label.length + 4;
+        textarea.setSelectionRange(newPos, newPos);
+        textarea.focus();
+
+        document.getElementById('wiki-autocomplete').classList.add('hidden');
+
+        // Trigger update on the node
+        const nodeId = [...this.selectedNodes][0];
+        if (nodeId) {
+            const node = this.model.nodes.get(nodeId);
+            if (node) node.content = textarea.value;
+        }
+    }
+
+    // ======================== STARRED ========================
+
+    _renderStarredList() {
+        const container = document.getElementById('starred-list');
+        if (!container) return;
+
+        const starred = [...this.starredNodes]
+            .map(id => this.model.nodes.get(id))
+            .filter(Boolean);
+
+        if (starred.length === 0) {
+            container.innerHTML = '<div class="backlinks-empty" style="padding:12px">[ NO STARRED PAGES ]</div>';
+            return;
+        }
+
+        container.innerHTML = starred.map(n => {
+            const typeDef = NexusModel.NODE_TYPES[n.type] || NexusModel.NODE_TYPES.idea;
+            return `<div class="page-item" data-id="${n.id}">
+                <span class="page-dot" style="background:${typeDef.color}"></span>
+                <span class="page-label">★ ${this._esc(n.label)}</span>
+            </div>`;
+        }).join('');
+
+        container.querySelectorAll('.page-item').forEach(el => {
+            el.addEventListener('click', () => {
+                const node = this.model.nodes.get(el.dataset.id);
+                if (node) this._jumpToNode(node);
+            });
+        });
+    }
+
+    // ======================== EXPORT ========================
+
+    _exportMarkdown() {
+        const nodeId = [...this.selectedNodes][0];
+        if (!nodeId) return;
+        const node = this.model.nodes.get(nodeId);
+        if (!node) return;
+
+        const typeDef = NexusModel.NODE_TYPES[node.type] || NexusModel.NODE_TYPES.idea;
+        let md = `# ${node.label}\n\n`;
+        md += `> Type: ${typeDef.label}\n\n`;
+        if (node.description) md += `*${node.description}*\n\n`;
+
+        // Properties
+        const propKeys = Object.keys(node.properties || {});
+        if (propKeys.length > 0) {
+            md += `## Properties\n\n`;
+            propKeys.forEach(k => { md += `- **${k}**: ${node.properties[k]}\n`; });
+            md += '\n';
+        }
+
+        if (node.content) md += `---\n\n${node.content}\n\n`;
+        if (node.notes) md += `## Notes\n\n${node.notes}\n`;
+
+        // Download
+        const blob = new Blob([md], { type: 'text/markdown' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${node.label.replace(/[^a-zA-Z0-9 ]/g, '').replace(/\s+/g, '_')}.md`;
+        a.click();
+        URL.revokeObjectURL(url);
+        this._status('[EXPORTED]', 'success');
+    }
+
+    // ======================== WORD COUNT ========================
+
+    _updateWordCount(text) {
+        const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+        const el = document.getElementById('word-count');
+        if (el) el.textContent = `${words} WORDS`;
     }
 
     // ======================== HELPERS ========================
@@ -1269,12 +2204,47 @@ Write concise, substantive paragraphs. Plain text only, no markdown headers. Be 
                 const item = document.createElement('div');
                 item.className = 'page-item' + (this.selectedNodes.has(n.id) ? ' active' : '');
                 item.innerHTML = `<span class="page-item-label">${this._esc(n.label)}</span>`;
+                item.dataset.id = n.id;
+                item.draggable = true;
+
                 item.addEventListener('click', () => {
                     this._clearSelection();
                     this._selectNode(n);
                     this.renderer.panTo(n.x, n.y);
                     this._openInspector(n);
                 });
+
+                // Drag reorder
+                item.addEventListener('dragstart', (e) => {
+                    e.dataTransfer.setData('text/plain', n.id);
+                    item.classList.add('dragging');
+                });
+                item.addEventListener('dragend', () => {
+                    item.classList.remove('dragging');
+                    container.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+                });
+                item.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    item.classList.add('drag-over');
+                });
+                item.addEventListener('dragleave', () => {
+                    item.classList.remove('drag-over');
+                });
+                item.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    item.classList.remove('drag-over');
+                    const fromId = e.dataTransfer.getData('text/plain');
+                    const fromNode = this.model.nodes.get(fromId);
+                    if (fromNode && fromNode.id !== n.id) {
+                        // Swap positions on canvas
+                        const tx = fromNode.x, ty = fromNode.y;
+                        fromNode.x = n.x; fromNode.y = n.y;
+                        n.x = tx; n.y = ty;
+                        this.renderer.markDirty();
+                        this._renderPagesTree();
+                    }
+                });
+
                 items.appendChild(item);
             });
 
