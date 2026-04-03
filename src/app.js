@@ -107,6 +107,8 @@ class ReflectApp {
     }
 
     _onMouseDown(e) {
+        e.preventDefault(); // Prevent browser native drag/selection
+        this.canvas.setPointerCapture(e.pointerId);
         const pos = this._getCanvasPos(e);
         this.lastMouse = pos;
         if (e.button !== 2) this._hideAllContextMenus();
@@ -224,6 +226,7 @@ class ReflectApp {
 
     _onMouseUp(e) {
         if (!this.dragState) return;
+        try { this.canvas.releasePointerCapture(e.pointerId); } catch(_) {}
         const pos = this._getCanvasPos(e);
 
         if (this.dragState === 'connect') {
@@ -241,13 +244,16 @@ class ReflectApp {
             const sb = this.renderer.selectionBox;
             const topLeft = this.renderer.screenToWorld(sb.x, sb.y);
             const bottomRight = this.renderer.screenToWorld(sb.x + sb.w, sb.y + sb.h);
+            let count = 0;
             this.model.nodes.forEach(n => {
                 if (n.x >= topLeft.x && n.x <= bottomRight.x && n.y >= topLeft.y && n.y <= bottomRight.y) {
                     this._selectNode(n, true);
+                    count++;
                 }
             });
             this.renderer.selectionBox = null;
             this.renderer.markDirty();
+            if (count > 0) this._status(`[${count} SELECTED]`);
         }
 
         this.dragState = null;
