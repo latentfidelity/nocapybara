@@ -1874,7 +1874,7 @@ Write concise, substantive paragraphs. Plain text only, no markdown headers. Be 
             msg.className = `debate-msg side-${side.toLowerCase()}`;
             msg.innerHTML = `
                 <div class="debate-msg-header">${side === 'RESOLUTION' ? '◆ RESOLUTION' : `${side === 'A' ? '🔴' : '🔵'} MODEL ${side} — ROUND ${round}`} · ${model}</div>
-                <div class="debate-msg-body">${content.replace(/\n/g, '<br>')}</div>
+                <div class="debate-msg-body">${String(content || '').replace(/\n/g, '<br>')}</div>
             `;
             transcript.appendChild(msg);
             transcript.scrollTop = transcript.scrollHeight;
@@ -1887,7 +1887,8 @@ Write concise, substantive paragraphs. Plain text only, no markdown headers. Be 
                 statusEl.textContent = `Model A thinking...`;
 
                 const promptA = this._buildDebatePrompt(topic, history, 'A', round, rounds);
-                const responseA = await window.electronAPI.geminiRequest(promptA, false, this.debateModelA);
+                const resultA = await window.electronAPI.geminiRequest(promptA, false, this.debateModelA);
+                const responseA = resultA?.text || resultA?.error || String(resultA || '');
 
                 addToTranscript('A', round, this.debateModelA, responseA);
 
@@ -1905,7 +1906,8 @@ Write concise, substantive paragraphs. Plain text only, no markdown headers. Be 
                 statusEl.textContent = `Model B thinking...`;
 
                 const promptB = this._buildDebatePrompt(topic, history, 'B', round, rounds);
-                const responseB = await window.electronAPI.geminiRequest(promptB, false, this.debateModelB);
+                const resultB = await window.electronAPI.geminiRequest(promptB, false, this.debateModelB);
+                const responseB = resultB?.text || resultB?.error || String(resultB || '');
 
                 addToTranscript('B', round, this.debateModelB, responseB);
 
@@ -1926,7 +1928,8 @@ Write concise, substantive paragraphs. Plain text only, no markdown headers. Be 
             roundIndicator.textContent = 'RESOLUTION';
 
             const resolutionPrompt = this._buildResolutionPrompt(topic, history);
-            const resolution = await window.electronAPI.geminiRequest(resolutionPrompt, false, this.debateModelA);
+            const resultRes = await window.electronAPI.geminiRequest(resolutionPrompt, false, this.debateModelA);
+            const resolution = resultRes?.text || resultRes?.error || String(resultRes || '');
 
             addToTranscript('RESOLUTION', null, 'synthesizer', resolution);
 
