@@ -1319,7 +1319,7 @@ class ReflectApp {
                     this._clearSelection();
                     this._selectNode(this._ctxTarget);
                     const topic = this._ctxTarget.content || this._ctxTarget.label;
-                    this._startDebate(topic, this._ctxTarget);
+                    this._openBranchConfigModal(topic, this._ctxTarget);
                 }
                 break;
             case 'template-concept':
@@ -2251,6 +2251,40 @@ Write concise, substantive paragraphs. Plain text only, no markdown headers. Be 
             if (node.label.toLowerCase() === lower) return node;
         }
         return null;
+    }
+
+    _openBranchConfigModal(topic, parentNode) {
+        const overlay = document.getElementById('branch-config-overlay');
+        const preview = document.getElementById('branch-config-topic-preview');
+        const container = document.getElementById('branch-config-controls-container');
+        const startBtn = document.getElementById('branch-config-start-btn');
+        const closeBtn = document.getElementById('branch-config-close');
+
+        // Move #debate-controls DOM into the modal
+        const controls = document.getElementById('debate-controls');
+        const originalParent = controls.parentElement;
+        
+        // Unhide controls if they were hidden by Note mode
+        const wasHidden = controls.classList.contains('hidden');
+        controls.classList.remove('hidden');
+        container.appendChild(controls);
+
+        preview.textContent = `"${topic.slice(0, 150)}${topic.length > 150 ? '...' : ''}"`;
+        overlay.classList.remove('hidden');
+
+        const closeLogic = () => {
+            overlay.classList.add('hidden');
+            // Move controls back to original position
+            originalParent.appendChild(controls);
+            if (wasHidden) controls.classList.add('hidden');
+        };
+
+        closeBtn.onclick = () => closeLogic();
+        
+        startBtn.onclick = () => {
+            closeLogic();
+            this._startDebate(topic, parentNode);
+        };
     }
 
     // ======================== DEBATE ENGINE ========================
