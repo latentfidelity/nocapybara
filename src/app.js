@@ -406,6 +406,23 @@ class ReflectApp {
         }
         this.renderer.markDirty();
         this._updateInspector();
+        this._syncThoughtBarColor();
+    }
+
+    _syncThoughtBarColor() {
+        const bar = document.querySelector('.thought-bar-inner');
+        if (!bar) return;
+        if (this.selectedNodes.size === 1) {
+            const node = this.model.nodes.get([...this.selectedNodes][0]);
+            if (node) {
+                const typeDef = NexusModel.NODE_TYPES[node.type] || NexusModel.NODE_TYPES.claim;
+                bar.style.borderColor = typeDef.color;
+                bar.style.boxShadow = `0 0 12px ${typeDef.glow}, 0 4px 24px rgba(0,0,0,0.4)`;
+                return;
+            }
+        }
+        bar.style.borderColor = '';
+        bar.style.boxShadow = '';
     }
 
     _selectNode(node, addToSelection = false) {
@@ -416,6 +433,7 @@ class ReflectApp {
         this.renderer.markDirty();
         this._updateInspector();
         this._openRightPanel();
+        this._syncThoughtBarColor();
     }
 
     _selectEdge(edge) {
@@ -1283,23 +1301,44 @@ class ReflectApp {
 
         input.value = '';
         input.style.height = 'auto';
+        // Restart placeholder cycle
+        setTimeout(() => this._startPlaceholderCycle(), 500);
 
         if (this.captureMode === 'debate') {
             this._startDebate(text);
             return;
         }
 
-        const wp = this.renderer.screenToWorld(this.renderer.viewW / 2, this.renderer.viewH / 2);
-        wp.x += (Math.random() - 0.5) * 200;
-        wp.y += (Math.random() - 0.5) * 200;
+        // Determine parent node for branching
+        let parentNode = null;
+        if (this.selectedNodes.size === 1) {
+            parentNode = this.model.nodes.get([...this.selectedNodes][0]);
+        }
 
-        const tempLabel = text.split('\n')[0].slice(0, 40) + (text.length > 40 ? '…' : '');
+        let wp;
+        if (parentNode) {
+            // Branch: position near parent with slight offset
+            const angle = Math.random() * Math.PI * 2;
+            const dist = 180 + Math.random() * 60;
+            wp = { x: parentNode.x + Math.cos(angle) * dist, y: parentNode.y + Math.sin(angle) * dist };
+        } else {
+            wp = this.renderer.screenToWorld(this.renderer.viewW / 2, this.renderer.viewH / 2);
+            wp.x += (Math.random() - 0.5) * 200;
+            wp.y += (Math.random() - 0.5) * 200;
+        }
+
+        const tempLabel = text.split('\n')[0].slice(0, 40) + (text.length > 40 ? '\u2026' : '');
         const node = this.model.addNode('claim', wp.x, wp.y, tempLabel);
         node.content = text;
 
+        // Connect to parent if branching
+        if (parentNode) {
+            this.model.addEdge(parentNode.id, node.id);
+        }
+
         this._clearSelection();
         this._selectNode(node);
-        this._status('[THOUGHT CAPTURED]');
+        this._status(parentNode ? '[BRANCHED]' : '[THOUGHT CAPTURED]');
 
         if (this.options.autoExpand && window.electronAPI && window.electronAPI.geminiRequest) {
             this._aiGenerateTitle(node, text);

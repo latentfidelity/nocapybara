@@ -1704,9 +1704,9 @@ html, body {
 .settings-btn {
     width: 32px;
     height: 32px;
-    font-size: 18px;
+    font-size: 22px;
     line-height: 1;
-    padding-bottom: 1px;
+    padding-bottom: 2px;
 }
 
 /* ===================== QUICK SWITCHER ===================== */
