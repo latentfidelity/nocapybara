@@ -75,7 +75,7 @@ class ReflectApp {
         this.starredNodes = new Set(JSON.parse(localStorage.getItem('nocapybara-starred') || '[]'));
 
         // Graph type filter
-        this.typeFilter = new Set(['idea', 'topic', 'note', 'rule', 'event', 'detail']);
+        this.typeFilter = new Set(['claim', 'evidence', 'argument', 'axiom', 'question', 'synthesis']);
         this.renderer.typeFilter = this.typeFilter;
 
         // Options (persisted)
@@ -328,7 +328,7 @@ class ReflectApp {
             return;
         }
         const wp = this.renderer.screenToWorld(pos.x, pos.y);
-        const newNode = this.model.addNode('idea', wp.x, wp.y, '');
+        const newNode = this.model.addNode('claim', wp.x, wp.y, '');
         this._clearSelection();
         this._selectNode(newNode, true);
         this._openInspector(newNode);
@@ -457,7 +457,7 @@ class ReflectApp {
     _showNodeInspector(node) {
         const panel = document.getElementById('inspector-node');
         panel.classList.remove('hidden');
-        document.getElementById('inspector-title').textContent = node.type === 'idea' ? 'PAGE EDITOR' : 'NODE INSPECTOR';
+        document.getElementById('inspector-title').textContent = node.type === 'claim' ? 'CLAIM EDITOR' : 'NODE INSPECTOR';
 
         const labelInput = document.getElementById('node-label');
         const typeSelect = document.getElementById('node-type-select');
@@ -781,7 +781,7 @@ class ReflectApp {
             const wp = this.renderer.screenToWorld(this.renderer.viewW / 2, this.renderer.viewH / 2);
             wp.x += (Math.random() - 0.5) * 100;
             wp.y += (Math.random() - 0.5) * 100;
-            const node = this.model.addNode('idea', wp.x, wp.y, 'Untitled Page');
+            const node = this.model.addNode('claim', wp.x, wp.y, 'Untitled Page');
             this._clearSelection();
             this._selectNode(node);
             this._openInspector(node);
@@ -1222,7 +1222,7 @@ class ReflectApp {
         wp.y += (Math.random() - 0.5) * 200;
 
         const tempLabel = text.split('\n')[0].slice(0, 40) + (text.length > 40 ? '…' : '');
-        const node = this.model.addNode('idea', wp.x, wp.y, tempLabel);
+        const node = this.model.addNode('claim', wp.x, wp.y, tempLabel);
         node.content = text;
 
         this._clearSelection();
@@ -1989,7 +1989,7 @@ Write concise, substantive paragraphs. Plain text only, no markdown headers. Be 
 
         // Create the topic node at center
         const wp = this.renderer.screenToWorld(this.renderer.viewW / 2, this.renderer.viewH / 2);
-        const topicNode = this.model.addNode('topic', wp.x, wp.y - 120, topic);
+        const topicNode = this.model.addNode('question', wp.x, wp.y - 120, topic);
         topicNode.description = 'Debate topic';
         topicNode.properties = {
             mode: 'debate',
@@ -2030,7 +2030,7 @@ Write concise, substantive paragraphs. Plain text only, no markdown headers. Be 
 
                 addToTranscript('A', round, this.debateModelA, responseA);
 
-                const nodeA = this.model.addNode('idea', wp.x - 160, wp.y + round * 120, `R${round} — A`);
+                const nodeA = this.model.addNode('argument', wp.x - 160, wp.y + round * 120, `R${round} — A`);
                 nodeA.label = `Round ${round}: Model A`;
                 nodeA.description = `${this.debateModelA} — Round ${round}`;
                 nodeA.content = responseA;
@@ -2051,7 +2051,7 @@ Write concise, substantive paragraphs. Plain text only, no markdown headers. Be 
 
                 addToTranscript('B', round, this.debateModelB, responseB);
 
-                const nodeB = this.model.addNode('idea', wp.x + 160, wp.y + round * 120, `R${round} — B`);
+                const nodeB = this.model.addNode('argument', wp.x + 160, wp.y + round * 120, `R${round} — B`);
                 nodeB.label = `Round ${round}: Model B`;
                 nodeB.description = `${this.debateModelB} — Round ${round}`;
                 nodeB.content = responseB;
@@ -2075,7 +2075,7 @@ Write concise, substantive paragraphs. Plain text only, no markdown headers. Be 
 
             addToTranscript('RESOLUTION', null, 'synthesizer', resolution);
 
-            const resNode = this.model.addNode('rule', wp.x, wp.y + (rounds + 1) * 120, 'Resolution');
+            const resNode = this.model.addNode('synthesis', wp.x, wp.y + (rounds + 1) * 120, 'Resolution');
             resNode.label = `Resolution: ${topic.slice(0, 30)}`;
             resNode.description = `Fundamental truth document — ${rounds} rounds of debate`;
             resNode.content = resolution;
@@ -2207,7 +2207,7 @@ This document should stand alone as a definitive, richly linked analysis. Do NOT
         }
 
         const wp = this.renderer.screenToWorld(this.renderer.viewW / 2, this.renderer.viewH / 2);
-        const node = this.model.addNode('event', wp.x, wp.y, label);
+        const node = this.model.addNode('question', wp.x, wp.y, label);
         node.description = `Daily note for ${dayName}, ${dateStr}`;
         node.content = `# ${dayName}\n\n## Tasks\n- \n\n## Notes\n\n\n## Reflections\n\n`;
         node.properties = { date: dateStr, type: 'daily-note' };
