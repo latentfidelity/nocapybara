@@ -1112,15 +1112,6 @@ class ReflectApp {
             });
         }
 
-        // Post-Processing toggle
-        const ppEl = document.getElementById('opt-post-processing');
-        if (ppEl) {
-            ppEl.checked = this.renderer.postProcessing !== false;
-            ppEl.addEventListener('change', () => {
-                this.renderer.postProcessing = ppEl.checked;
-                this.renderer.markDirty();
-            });
-        }
 
         // Obsidian Vault Import
         const vaultInput = document.getElementById('import-vault-input');
