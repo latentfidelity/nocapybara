@@ -20,8 +20,8 @@ class GraphRenderer {
         this._raf = null;
         this._dirty = true;
 
-        // Physics
-        this.physicsEnabled = true;
+        this.postProcessing = false;
+        this.physicsEnabled = false;
         this._physicsStrength = 0.8; // 0-1
         this._draggedNode = null; // skip physics on dragged node
 
