@@ -86,7 +86,7 @@ class ReflectApp {
         const c = this.canvas;
         c.addEventListener('mousedown', e => this._onMouseDown(e));
         c.addEventListener('mousemove', e => this._onMouseMove(e));
-        c.addEventListener('mouseup', e => this._onMouseUp(e));
+        document.addEventListener('mouseup', e => this._onMouseUp(e));
         c.addEventListener('dblclick', e => this._onDoubleClick(e));
         c.addEventListener('wheel', e => this._onWheel(e), { passive: false });
         c.addEventListener('contextmenu', e => this._onContextMenu(e));
@@ -223,6 +223,7 @@ class ReflectApp {
     }
 
     _onMouseUp(e) {
+        if (!this.dragState) return;
         const pos = this._getCanvasPos(e);
 
         if (this.dragState === 'connect') {
