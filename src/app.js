@@ -1318,7 +1318,8 @@ class ReflectApp {
                 if (this._ctxTarget) {
                     this._clearSelection();
                     this._selectNode(this._ctxTarget);
-                    this._showBranchInput(this._ctxTarget, 'debate');
+                    const topic = this._ctxTarget.content || this._ctxTarget.label;
+                    this._startDebate(topic, this._ctxTarget);
                 }
                 break;
             case 'template-concept':
@@ -1443,7 +1444,7 @@ class ReflectApp {
         }
     }
 
-    _showBranchInput(parentNode, intent = 'write') {
+    _showBranchInput(parentNode) {
         if (this._branchInputActive) {
             this._dismissBranchInput();
         }
@@ -1467,12 +1468,12 @@ class ReflectApp {
 
         const input = document.createElement('input');
         input.type = 'text';
-        input.placeholder = intent === 'debate' ? 'Debate topic...' : 'Branch from this node...';
+        input.placeholder = 'Branch from this node...';
         input.style.cssText = `
             width: 220px;
             padding: 6px 12px;
             background: rgba(17,17,17,0.95);
-            border: 2px solid ${intent === 'debate' ? '#FF5555' : typeDef.color};
+            border: 2px solid ${typeDef.color};
             border-radius: 14px;
             color: #fff;
             font-family: 'Space Grotesk', sans-serif;
@@ -1491,13 +1492,6 @@ class ReflectApp {
         const submit = () => {
             const text = input.value.trim();
             if (!text) { this._dismissBranchInput(); return; }
-
-            if (intent === 'debate') {
-                this._dismissBranchInput();
-                this._clearSelection();
-                this._startDebate(text, parentNode);
-                return;
-            }
 
             const angle = Math.random() * Math.PI * 2;
             const dist = 180 + Math.random() * 60;
