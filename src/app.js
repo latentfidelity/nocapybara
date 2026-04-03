@@ -1112,6 +1112,21 @@ class ReflectApp {
             });
         }
 
+        // Obsidian Vault Import
+        const vaultInput = document.getElementById('import-vault-input');
+        if (vaultInput) {
+            vaultInput.addEventListener('change', async (e) => {
+                const files = Array.from(e.target.files).filter(f => f.name.endsWith('.md'));
+                if (files.length === 0) return;
+
+                if (!confirm(`Import ${files.length} markdown files from vault? This will add them to your current graph.`)) return;
+
+                this._status(`[IMPORTING ${files.length} FILES...]`);
+                await this._importObsidianVault(files);
+                vaultInput.value = ''; // Reset
+            });
+        }
+
         // Export all
         document.getElementById('opt-export-all').addEventListener('click', () => {
             this._exportAllMarkdown();
@@ -2728,6 +2743,110 @@ This document should stand alone as a definitive, richly linked analysis. Do NOT
             if (el) el.checked = this.options[key];
         });
         document.getElementById('options-overlay').classList.remove('hidden');
+    }
+
+    async _importObsidianVault(files) {
+        const fileData = [];
+        // 1. Read all files
+        for (const file of files) {
+            const text = await new Promise(resolve => {
+                const reader = new FileReader();
+                reader.onload = e => resolve(e.target.result);
+                reader.readAsText(file);
+            });
+            fileData.push({ name: file.name.replace(/\.md$/i, ''), content: text });
+        }
+
+        // 2. Parse frontmatter & create nodes
+        const nodeMap = new Map(); // label -> node
+        const newNodes = [];
+        const wp = this.renderer.screenToWorld(this.renderer.viewW / 2, this.renderer.viewH / 2);
+
+        // Calculate a grid layout
+        const cols = Math.ceil(Math.sqrt(fileData.length));
+        const spacing = 300;
+        let startX = wp.x - (cols * spacing) / 2;
+        let startY = wp.y - (cols * spacing) / 2;
+
+        fileData.forEach((fd, i) => {
+            const row = Math.floor(i / cols);
+            const col = i % cols;
+            const nx = startX + col * spacing + (Math.random() * 50 - 25);
+            const ny = startY + row * spacing + (Math.random() * 50 - 25);
+
+            let type = 'claim';
+            let cleanContent = fd.content;
+            let description = '';
+
+            // Extract YAML Frontmatter
+            const fmMatch = fd.content.match(/^---\n([\s\S]*?)\n---/);
+            if (fmMatch) {
+                cleanContent = fd.content.slice(fmMatch[0].length).trim();
+                const fm = fmMatch[1];
+                if (fm.match(/type:\s*evidence/i)) type = 'evidence';
+                else if (fm.match(/type:\s*argument/i)) type = 'argument';
+                else if (fm.match(/type:\s*axiom/i)) type = 'axiom';
+                else if (fm.match(/type:\s*question/i)) type = 'question';
+                else if (fm.match(/type:\s*synthesis/i)) type = 'synthesis';
+                
+                const descMatch = fm.match(/description:\s*(.+)/i);
+                if (descMatch) description = descMatch[1].trim();
+            }
+
+            const node = this.model.addNode(type, nx, ny, fd.name);
+            node.content = cleanContent;
+            node.description = description || 'Imported from Obsidian';
+            node.source = { type: 'import', timestamp: Date.now() };
+
+            // Extract tags
+            const tags = cleanContent.match(/#[a-zA-Z0-9_\-]+/g);
+            if (tags) {
+                if (!node.notes) node.notes = '';
+                node.notes += '\nTags: ' + tags.join(', ');
+            }
+
+            nodeMap.set(fd.name.toLowerCase(), node);
+            newNodes.push({ node, cleanContent });
+        });
+
+        // 3. Resolve WikiLinks to edges
+        // Regex for [[Link]] or [[Link|Alias]]
+        const wikiRegex = /\[\[(.*?)(?:\|.*?)?\]\]/g;
+        let edgesCreated = 0;
+
+        newNodes.forEach((data) => {
+            let match;
+            const seenLinks = new Set();
+            while ((match = wikiRegex.exec(data.cleanContent)) !== null) {
+                const linkTarget = match[1].trim().toLowerCase();
+                if (seenLinks.has(linkTarget)) continue;
+                seenLinks.add(linkTarget);
+
+                // Find target in new imports, or existing graph
+                let targetId = null;
+                if (nodeMap.has(linkTarget)) {
+                    targetId = nodeMap.get(linkTarget).id;
+                } else {
+                    const existingNode = this._findNodeByLabel(linkTarget);
+                    if (existingNode) targetId = existingNode.id;
+                }
+
+                if (targetId && targetId !== data.node.id) {
+                    this.model.addEdge(data.node.id, targetId, 'references');
+                    edgesCreated++;
+                }
+            }
+        });
+
+        this.renderer.markDirty();
+        this._status(`[IMPORT COMPLETE: ${fileData.length} files, ${edgesCreated} links]`, 'success');
+
+        // Optional: Run physics to organically layout the new structure
+        if (this.renderer.physicsEnabled) {
+            // physics will auto trigger dirtiness
+        } else {
+            this.renderer.fitView();
+        }
     }
 
     _exportAllMarkdown() {
