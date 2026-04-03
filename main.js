@@ -170,32 +170,96 @@ ipcMain.handle('save-file', async (event, filePath, content) => {
 ipcMain.handle('get-config', () => config);
 
 // IPC for Gemini API calls (proxied through main process)
-ipcMain.handle('gemini-request', async (event, prompt) => {
+ipcMain.handle('gemini-request', async (event, prompt, useGrounding = false, model = 'gemini-2.5-flash') => {
     const apiKey = config.gemini_api_key;
     if (!apiKey) return { error: 'No Gemini API key configured' };
 
     try {
+        const body = {
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: {
+                temperature: 0.4,
+                maxOutputTokens: 2048
+            }
+        };
+
+        if (useGrounding) {
+            body.tools = [{ google_search: {} }];
+        }
+
         const response = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+            `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
             {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    contents: [{ parts: [{ text: prompt }] }],
-                    generationConfig: {
-                        temperature: 0.7,
-                        maxOutputTokens: 1024
-                    }
-                })
+                body: JSON.stringify(body)
             }
         );
         const data = await response.json();
         if (data.candidates && data.candidates[0]) {
-            return { text: data.candidates[0].content.parts[0].text };
+            const candidate = data.candidates[0];
+            const text = candidate.content.parts[0].text;
+            const groundingMeta = candidate.groundingMetadata;
+            return { text, groundingMeta };
         }
         return { error: data.error?.message || 'No response from Gemini' };
     } catch (err) {
         return { error: err.message };
+    }
+});
+
+// Streaming Gemini API
+ipcMain.handle('gemini-stream', async (event, prompt, useGrounding = false, model = 'gemini-2.5-flash') => {
+    const apiKey = config.gemini_api_key;
+    if (!apiKey) { event.sender.send('gemini-stream-error', 'No API key'); return; }
+
+    try {
+        const body = {
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: { temperature: 0.4, maxOutputTokens: 2048 }
+        };
+        if (useGrounding) {
+            body.tools = [{ google_search: {} }];
+        }
+
+        const response = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${apiKey}`,
+            {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            }
+        );
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop();
+
+            for (const line of lines) {
+                if (line.startsWith('data: ')) {
+                    const jsonStr = line.slice(6).trim();
+                    if (!jsonStr) continue;
+                    try {
+                        const chunk = JSON.parse(jsonStr);
+                        if (chunk.candidates && chunk.candidates[0]?.content?.parts?.[0]?.text) {
+                            event.sender.send('gemini-stream-chunk', chunk.candidates[0].content.parts[0].text);
+                        }
+                    } catch (e) { /* partial JSON, skip */ }
+                }
+            }
+        }
+
+        event.sender.send('gemini-stream-done');
+    } catch (err) {
+        event.sender.send('gemini-stream-error', err.message);
     }
 });
 
