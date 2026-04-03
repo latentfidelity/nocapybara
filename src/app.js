@@ -1564,7 +1564,7 @@ Thought: "${text.replace(/"/g, '\\"')}"`;
         const msg = document.createElement('div');
         msg.className = 'debate-msg side-a'; // generic color side
         msg.innerHTML = `
-            <div class="debate-msg-header">\u2726 AI EXPANSION \u00B7 ${this.selectedModel}</div>
+            <div class="debate-msg-header">\u2726 ${this.selectedModel}</div>
             <div class="debate-msg-body" id="write-modal-body"></div>
         `;
         transcript.appendChild(msg);
