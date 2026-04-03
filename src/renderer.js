@@ -140,12 +140,18 @@ class GraphRenderer {
 
     nodeAtWorld(wx, wy) {
         const nodes = [...this.model.nodes.values()].reverse();
+        const tempCanvas = document.createElement('canvas');
+        const tempCtx = tempCanvas.getContext('2d');
+        tempCtx.font = "500 10px 'Space Grotesk', sans-serif";
         for (const n of nodes) {
             const layer = this.model.layers.find(l => l.id === n.layer);
             if (layer && !layer.visible) continue;
-            // Hit test: circle radius 16 (12 + padding)
-            const dist = Math.hypot(wx - n.x, wy - n.y);
-            if (dist <= 16) {
+            // Hit test: pill bounding box
+            const labelW = tempCtx.measureText(n.label || '').width;
+            const pillW = Math.max(labelW + 24, 60);
+            const pillH = 28;
+            if (wx >= n.x - pillW/2 - 4 && wx <= n.x + pillW/2 + 4 &&
+                wy >= n.y - pillH/2 - 4 && wy <= n.y + pillH/2 + 4) {
                 return n;
             }
         }
@@ -282,23 +288,29 @@ class GraphRenderer {
     }
 
     _drawNode(ctx, node) {
-        const typeDef = NexusModel.NODE_TYPES[node.type] || NexusModel.NODE_TYPES.idea;
+        const typeDef = NexusModel.NODE_TYPES[node.type] || NexusModel.NODE_TYPES.claim;
         const isSelected = node.selected;
         const isHovered = node.hovered;
         const hasContent = node.content && node.content.length > 0;
 
-        const radius = isSelected ? 14 : (isHovered ? 13 : 12);
+        // Measure label to size the pill
+        ctx.font = "500 10px 'Space Grotesk', sans-serif";
+        const labelText = node.label || '';
+        const textW = ctx.measureText(labelText).width;
+        const pillW = Math.max(textW + 24, 60);
+        const pillH = isSelected ? 28 : (isHovered ? 27 : 26);
+        const pillR = pillH / 2; // Full round ends
 
         // Loading pulse ring
         if (node._loading) {
             const t = (Date.now() % 1500) / 1500;
-            const pulseR = radius + 6 + t * 18;
+            const pulseR = pillR + 6 + t * 18;
             const pulseAlpha = 0.3 * (1 - t);
             ctx.save();
             ctx.strokeStyle = `rgba(255,255,255,${pulseAlpha})`;
             ctx.lineWidth = 1.5;
             ctx.beginPath();
-            ctx.arc(node.x, node.y, pulseR, 0, Math.PI * 2);
+            ctx.roundRect(node.x - pillW/2 - (pulseR - pillR), node.y - pillH/2 - (pulseR - pillR), pillW + (pulseR - pillR)*2, pillH + (pulseR - pillR)*2, pulseR);
             ctx.stroke();
             ctx.restore();
             this.markDirty();
@@ -313,102 +325,98 @@ class GraphRenderer {
             ctx.setLineDash([3, 3]);
             if (node.epistemicStatus === 'established') ctx.setLineDash([]);
             ctx.beginPath();
-            ctx.arc(node.x, node.y, radius + 4, 0, Math.PI * 2);
+            ctx.roundRect(node.x - pillW/2 - 4, node.y - pillH/2 - 4, pillW + 8, pillH + 8, pillR + 4);
             ctx.stroke();
             ctx.restore();
         }
 
-        // Selection highlight — bright outer glow ring
+        // Selection glow
         if (isSelected) {
             ctx.save();
-            // Outer glow
-            ctx.shadowColor = '#FFFFFF';
-            ctx.shadowBlur = 12;
-            ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+            ctx.shadowColor = typeDef.color;
+            ctx.shadowBlur = 16;
+            ctx.strokeStyle = typeDef.color;
             ctx.lineWidth = 2;
             ctx.beginPath();
-            ctx.arc(node.x, node.y, radius + 6, 0, Math.PI * 2);
+            ctx.roundRect(node.x - pillW/2 - 3, node.y - pillH/2 - 3, pillW + 6, pillH + 6, pillR + 3);
             ctx.stroke();
-            ctx.restore();
-
-            // Inner highlight fill
-            ctx.save();
-            ctx.fillStyle = 'rgba(255,255,255,0.08)';
-            ctx.beginPath();
-            ctx.arc(node.x, node.y, radius + 6, 0, Math.PI * 2);
-            ctx.fill();
             ctx.restore();
         }
 
-        // Circle fill
+        // Pill gradient fill — dark base to type color
         ctx.save();
-        ctx.fillStyle = isSelected ? '#333333' : (isHovered ? '#2A2A2A' : '#1E1E1E');
+        const grd = ctx.createLinearGradient(node.x, node.y - pillH/2, node.x, node.y + pillH/2);
+        if (isSelected) {
+            grd.addColorStop(0, this._brighten(typeDef.color, 0.3));
+            grd.addColorStop(1, this._darken(typeDef.color, 0.2));
+        } else if (isHovered) {
+            grd.addColorStop(0, this._darken(typeDef.color, 0.3));
+            grd.addColorStop(1, this._darken(typeDef.color, 0.55));
+        } else {
+            grd.addColorStop(0, this._darken(typeDef.color, 0.5));
+            grd.addColorStop(1, this._darken(typeDef.color, 0.7));
+        }
+        ctx.fillStyle = grd;
         ctx.beginPath();
-        ctx.arc(node.x, node.y, radius, 0, Math.PI * 2);
+        ctx.roundRect(node.x - pillW/2, node.y - pillH/2, pillW, pillH, pillR);
         ctx.fill();
         ctx.restore();
 
-        // Circle border
+        // Button top highlight (3D effect)
         ctx.save();
-        ctx.strokeStyle = isSelected ? '#FFFFFF' : (isHovered ? '#CCCCCC' : '#888888');
-        ctx.lineWidth = isSelected ? 2 : 1;
+        ctx.globalAlpha = isSelected ? 0.2 : 0.1;
+        ctx.fillStyle = '#FFFFFF';
         ctx.beginPath();
-        ctx.arc(node.x, node.y, radius, 0, Math.PI * 2);
+        ctx.roundRect(node.x - pillW/2 + 2, node.y - pillH/2 + 1, pillW - 4, pillH * 0.4, [pillR, pillR, 2, 2]);
+        ctx.fill();
+        ctx.restore();
+
+        // Pill border
+        ctx.save();
+        ctx.strokeStyle = isSelected ? typeDef.color : (isHovered ? this._darken(typeDef.color, 0.1) : this._darken(typeDef.color, 0.3));
+        ctx.lineWidth = isSelected ? 1.5 : 1;
+        ctx.beginPath();
+        ctx.roundRect(node.x - pillW/2, node.y - pillH/2, pillW, pillH, pillR);
         ctx.stroke();
         ctx.restore();
 
-        // Type accent — subtle colored arc at bottom of circle
-        if (!isSelected) {
-            ctx.save();
-            ctx.strokeStyle = typeDef.color;
-            ctx.globalAlpha = isHovered ? 0.6 : 0.3;
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.arc(node.x, node.y, radius, Math.PI * 0.6, Math.PI * 0.4);
-            ctx.stroke();
-            ctx.restore();
-        }
-
-        // Page indicator (small dot inside circle for nodes with content)
+        // Content indicator dot
         if (hasContent) {
             ctx.save();
-            ctx.fillStyle = isSelected ? '#FFFFFF' : '#888888';
+            ctx.fillStyle = isSelected ? '#FFFFFF' : 'rgba(255,255,255,0.5)';
             ctx.beginPath();
-            ctx.arc(node.x, node.y, 3, 0, Math.PI * 2);
+            ctx.arc(node.x - pillW/2 + 10, node.y, 2.5, 0, Math.PI * 2);
             ctx.fill();
             ctx.restore();
         }
 
-        // Label below circle
-        if (!this.options || this.options.labels) {
+        // Label inside pill
         ctx.save();
-        ctx.font = isSelected ? "500 11px 'Space Grotesk', sans-serif" : "400 10px 'Space Grotesk', sans-serif";
+        ctx.font = isSelected ? "600 10px 'Space Grotesk', sans-serif" : "500 10px 'Space Grotesk', sans-serif";
         ctx.textAlign = 'center';
-        ctx.textBaseline = 'top';
-        ctx.fillStyle = isSelected ? '#FFFFFF' : (isHovered ? '#E8E8E8' : '#999999');
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = isSelected ? '#FFFFFF' : (isHovered ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.75)');
 
-        const labelY = node.y + radius + 6;
-        const maxLabelW = 100;
-        let label = node.label;
+        const maxLabelW = pillW - 20;
+        let label = labelText;
         if (ctx.measureText(label).width > maxLabelW) {
-            while (label.length > 0 && ctx.measureText(label + '…').width > maxLabelW) {
+            while (label.length > 0 && ctx.measureText(label + '\u2026').width > maxLabelW) {
                 label = label.slice(0, -1);
             }
-            label += '…';
+            label += '\u2026';
         }
-        ctx.fillText(label, node.x, labelY);
+        ctx.fillText(label, node.x, node.y + 0.5);
         ctx.restore();
 
-        // Type label on hover/select
+        // Type label below pill on hover/select
         if (isSelected || isHovered) {
             ctx.save();
             ctx.font = "400 8px 'Space Mono', monospace";
             ctx.textAlign = 'center';
             ctx.fillStyle = '#666666';
-            ctx.fillText(typeDef.label.toUpperCase(), node.x, labelY + 14);
+            ctx.fillText(typeDef.label.toUpperCase(), node.x, node.y + pillH/2 + 10);
             ctx.restore();
         }
-        } // end labels check
     }
 
     _drawEdge(ctx, edge) {
@@ -420,6 +428,8 @@ class GraphRenderer {
 
         const isSelected = edge.selected;
         const isHovered = edge.hovered;
+        const fromType = NexusModel.NODE_TYPES[from.type] || NexusModel.NODE_TYPES.claim;
+        const toType = NexusModel.NODE_TYPES[to.type] || NexusModel.NODE_TYPES.claim;
 
         // Edge line
         const color = isSelected ? 'rgba(255,255,255,0.5)' : (isHovered ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.08)');
@@ -434,10 +444,10 @@ class GraphRenderer {
         if (dist < 1) { ctx.restore(); return; }
 
         const nx = dx / dist, ny = dy / dist;
-        const startX = from.x + nx * 6;
-        const startY = from.y + ny * 6;
-        const endX = to.x - nx * 6;
-        const endY = to.y - ny * 6;
+        const startX = from.x + nx * 30;
+        const startY = from.y + ny * 14;
+        const endX = to.x - nx * 30;
+        const endY = to.y - ny * 14;
 
         ctx.beginPath();
         ctx.moveTo(startX, startY);
@@ -455,6 +465,32 @@ class GraphRenderer {
         ctx.closePath();
         ctx.fill();
 
+        // Animated directional pulse
+        const t = ((Date.now() % 3000) / 3000); // 0->1 over 3 seconds
+        const px = startX + (endX - startX) * t;
+        const py = startY + (endY - startY) * t;
+        // Interpolate color from source to target type
+        const r1 = parseInt(fromType.color.slice(1,3), 16);
+        const g1 = parseInt(fromType.color.slice(3,5), 16);
+        const b1 = parseInt(fromType.color.slice(5,7), 16);
+        const r2 = parseInt(toType.color.slice(1,3), 16);
+        const g2 = parseInt(toType.color.slice(3,5), 16);
+        const b2 = parseInt(toType.color.slice(5,7), 16);
+        const pr = Math.round(r1 + (r2 - r1) * t);
+        const pg = Math.round(g1 + (g2 - g1) * t);
+        const pb = Math.round(b1 + (b2 - b1) * t);
+        const pulseAlpha = Math.sin(t * Math.PI) * 0.7; // Fade in/out
+
+        ctx.save();
+        ctx.fillStyle = `rgba(${pr},${pg},${pb},${pulseAlpha})`;
+        ctx.shadowColor = `rgb(${pr},${pg},${pb})`;
+        ctx.shadowBlur = 8;
+        ctx.beginPath();
+        ctx.arc(px, py, 3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+        this.markDirty(); // Keep animating
+
         // Label
         if (edge.label && (!this.options || this.options.edgeLabels)) {
             const mx = (from.x + to.x) / 2, my = (from.y + to.y) / 2;
@@ -466,6 +502,21 @@ class GraphRenderer {
         }
 
         ctx.restore();
+    }
+
+    // Color helpers for gradient pills
+    _darken(hex, amount) {
+        const r = parseInt(hex.slice(1,3), 16);
+        const g = parseInt(hex.slice(3,5), 16);
+        const b = parseInt(hex.slice(5,7), 16);
+        return `rgb(${Math.round(r * (1 - amount))},${Math.round(g * (1 - amount))},${Math.round(b * (1 - amount))})`;
+    }
+
+    _brighten(hex, amount) {
+        const r = parseInt(hex.slice(1,3), 16);
+        const g = parseInt(hex.slice(3,5), 16);
+        const b = parseInt(hex.slice(5,7), 16);
+        return `rgb(${Math.min(255, Math.round(r + (255 - r) * amount))},${Math.min(255, Math.round(g + (255 - g) * amount))},${Math.min(255, Math.round(b + (255 - b) * amount))})`;
     }
 
     // Minimap
