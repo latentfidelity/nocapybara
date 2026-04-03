@@ -1943,3 +1943,110 @@ html, body {
     border-top: 1px solid var(--border);
     padding-top: 8px;
 }
+
+/* ===================== OPTIONS PANEL ===================== */
+
+.options-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.85);
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.options-overlay.hidden { display: none; }
+
+.options-panel {
+    width: min(420px, 90%);
+    max-height: 80%;
+    background: var(--surface);
+    border: 1px solid var(--border-visible);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.options-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-md) var(--space-lg);
+    border-bottom: 1px solid var(--border);
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    color: var(--text-primary);
+}
+
+.options-body {
+    padding: var(--space-md) var(--space-lg);
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.options-section {
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    color: var(--text-disabled);
+    padding-top: 12px;
+    margin-top: 6px;
+    border-top: 1px solid var(--border);
+}
+
+.options-section:first-child {
+    border-top: none;
+    padding-top: 0;
+    margin-top: 0;
+}
+
+.option-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 12px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 4px 0;
+}
+
+.option-row:hover { color: var(--text-primary); }
+
+.option-row input[type="checkbox"] {
+    accent-color: var(--text-primary);
+    width: 14px;
+    height: 14px;
+}
+
+.option-btn {
+    width: 100%;
+    padding: 8px 12px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    cursor: pointer;
+    margin-top: 4px;
+    transition: all var(--speed-fast) var(--ease);
+}
+
+.option-btn:hover {
+    background: rgba(255,255,255,0.08);
+    color: var(--text-primary);
+}
+
+.option-btn.danger {
+    border-color: #D71921;
+    color: #D71921;
+}
+
+.option-btn.danger:hover {
+    background: rgba(215,25,33,0.1);
+}

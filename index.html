@@ -106,11 +106,48 @@
                         <label class="filter-check"><input type="checkbox" data-filter="detail" checked> Detail</label>
                     </div>
                 </div>
-                <!-- Help -->
+                <!-- Footer -->
                 <div class="panel-footer">
                     <button id="btn-help" class="help-btn">?</button>
+                    <button id="btn-settings" class="help-btn">⚙</button>
                 </div>
             </aside>
+
+            <!-- Options Overlay -->
+            <div id="options-overlay" class="options-overlay hidden">
+                <div class="options-panel">
+                    <div class="options-header">
+                        <span>OPTIONS</span>
+                        <button id="options-close" class="panel-close">×</button>
+                    </div>
+                    <div class="options-body">
+                        <div class="options-section">CANVAS</div>
+                        <label class="option-row"><input type="checkbox" id="opt-grid"> Show Grid</label>
+                        <label class="option-row"><input type="checkbox" id="opt-labels" checked> Show Labels</label>
+                        <label class="option-row"><input type="checkbox" id="opt-edges" checked> Show Edges</label>
+                        <label class="option-row"><input type="checkbox" id="opt-edge-labels" checked> Show Edge Labels</label>
+
+                        <div class="options-section">AI</div>
+                        <label class="option-row"><input type="checkbox" id="opt-auto-expand" checked> Auto-Expand Thoughts</label>
+                        <label class="option-row"><input type="checkbox" id="opt-grounding" > Google Search Grounding</label>
+
+                        <div class="options-section">KNOWLEDGE</div>
+                        <label class="option-row"><input type="checkbox" id="opt-backlinks" checked> Show Backlinks</label>
+                        <label class="option-row"><input type="checkbox" id="opt-outline" checked> Show Outline in Page View</label>
+                        <label class="option-row"><input type="checkbox" id="opt-word-count" checked> Show Word Count</label>
+                        <label class="option-row"><input type="checkbox" id="opt-hover-preview" checked> Hover Preview on [[Links]]</label>
+
+                        <div class="options-section">INTERFACE</div>
+                        <label class="option-row"><input type="checkbox" id="opt-auto-save" checked> Auto-Save (every 5s)</label>
+                        <label class="option-row"><input type="checkbox" id="opt-status-bar" checked> Show Status Bar</label>
+                        <label class="option-row"><input type="checkbox" id="opt-empty-state" checked> Show Empty State Hint</label>
+
+                        <div class="options-section">DATA</div>
+                        <button id="opt-export-all" class="option-btn">↓ EXPORT ALL AS MARKDOWN</button>
+                        <button id="opt-clear-data" class="option-btn danger">⚠ CLEAR ALL DATA</button>
+                    </div>
+                </div>
+            </div>
 
             <!-- Canvas Area -->
             <div id="canvas-container">

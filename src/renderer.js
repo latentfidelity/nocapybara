@@ -188,7 +188,7 @@ class GraphRenderer {
         ctx.fillRect(0, 0, this.viewW, this.viewH);
 
         // Dot grid (Nothing style)
-        this._drawDotGrid(ctx, cx, cy, zoom);
+        if (!this.options || this.options.grid) this._drawDotGrid(ctx, cx, cy, zoom);
 
         // Apply camera
         ctx.save();
@@ -196,7 +196,9 @@ class GraphRenderer {
         ctx.scale(zoom, zoom);
 
         // Draw edges
-        this.model.edges.forEach(edge => this._drawEdge(ctx, edge));
+        if (!this.options || this.options.edges) {
+            this.model.edges.forEach(edge => this._drawEdge(ctx, edge));
+        }
 
         // Draw pending connection
         if (this.pendingConnection) {
@@ -226,8 +228,8 @@ class GraphRenderer {
         if (this.selectionBox) {
             const sb = this.selectionBox;
             ctx.save();
-            ctx.strokeStyle = 'rgba(255,255,255,0.3)';
-            ctx.fillStyle = 'rgba(255,255,255,0.02)';
+            ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+            ctx.fillStyle = 'rgba(255,255,255,0.06)';
             ctx.lineWidth = 1;
             ctx.setLineDash([4, 4]);
             ctx.fillRect(sb.x, sb.y, sb.w, sb.h);
@@ -280,7 +282,7 @@ class GraphRenderer {
     }
 
     _drawNode(ctx, node) {
-        const typeDef = NexusModel.NODE_TYPES[node.type] || NexusModel.NODE_TYPES.concept;
+        const typeDef = NexusModel.NODE_TYPES[node.type] || NexusModel.NODE_TYPES.idea;
         const isSelected = node.selected;
         const isHovered = node.hovered;
         const hasContent = node.content && node.content.length > 0;
@@ -299,15 +301,27 @@ class GraphRenderer {
             ctx.arc(node.x, node.y, pulseR, 0, Math.PI * 2);
             ctx.stroke();
             ctx.restore();
-            this.markDirty(); // keep animating
+            this.markDirty();
         }
 
-        // Glow for selected
+        // Selection highlight — bright outer glow ring
         if (isSelected) {
             ctx.save();
-            ctx.fillStyle = 'rgba(255,255,255,0.04)';
+            // Outer glow
+            ctx.shadowColor = '#FFFFFF';
+            ctx.shadowBlur = 12;
+            ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+            ctx.lineWidth = 2;
             ctx.beginPath();
-            ctx.arc(node.x, node.y, 28, 0, Math.PI * 2);
+            ctx.arc(node.x, node.y, radius + 6, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.restore();
+
+            // Inner highlight fill
+            ctx.save();
+            ctx.fillStyle = 'rgba(255,255,255,0.08)';
+            ctx.beginPath();
+            ctx.arc(node.x, node.y, radius + 6, 0, Math.PI * 2);
             ctx.fill();
             ctx.restore();
         }
@@ -323,7 +337,7 @@ class GraphRenderer {
         // Circle border
         ctx.save();
         ctx.strokeStyle = isSelected ? '#FFFFFF' : (isHovered ? '#CCCCCC' : '#888888');
-        ctx.lineWidth = isSelected ? 1.5 : 1;
+        ctx.lineWidth = isSelected ? 2 : 1;
         ctx.beginPath();
         ctx.arc(node.x, node.y, radius, 0, Math.PI * 2);
         ctx.stroke();
@@ -340,6 +354,7 @@ class GraphRenderer {
         }
 
         // Label below circle
+        if (!this.options || this.options.labels) {
         ctx.save();
         ctx.font = isSelected ? "500 11px 'Space Grotesk', sans-serif" : "400 10px 'Space Grotesk', sans-serif";
         ctx.textAlign = 'center';
@@ -367,6 +382,7 @@ class GraphRenderer {
             ctx.fillText(typeDef.label.toUpperCase(), node.x, labelY + 14);
             ctx.restore();
         }
+        } // end labels check
     }
 
     _drawEdge(ctx, edge) {
@@ -414,7 +430,7 @@ class GraphRenderer {
         ctx.fill();
 
         // Label
-        if (edge.label) {
+        if (edge.label && (!this.options || this.options.edgeLabels)) {
             const mx = (from.x + to.x) / 2, my = (from.y + to.y) / 2;
             ctx.font = "400 9px 'Space Mono', monospace";
             ctx.textAlign = 'center';
