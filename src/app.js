@@ -2319,11 +2319,11 @@ Write concise, substantive paragraphs. Plain text only, no markdown headers. Be 
 
                     addToTranscript(debater.letter, round, debater.model, response, debater.emoji);
 
-                    // Position debater nodes radially
-                    const angle = (di / numDebaters) * Math.PI * 2 - Math.PI / 2;
-                    const rx = 180, ry = 0;
-                    const nx = wp.x + Math.cos(angle) * rx;
-                    const ny = wp.y + round * 120;
+                    // Position debater nodes horizontally across the current round's row
+                    const spacing = 220;
+                    const startX = wp.x - ((numDebaters - 1) * spacing) / 2;
+                    const nx = startX + di * spacing;
+                    const ny = wp.y + round * 140;
 
                     // Derive label from content — first heading or first sentence
                     let derivedLabel = `R${round} ${debater.letter}`;
@@ -2369,7 +2369,7 @@ Write concise, substantive paragraphs. Plain text only, no markdown headers. Be 
 
                     addToTranscript('JUDGE', round, judgeModel, recapText, '&#x2696;&#xFE0F;');
 
-                    const recapY = wp.y + round * 120 + 60;
+                    const recapY = wp.y + round * 140 + 70;
                     const recapNode = this.model.addNode('concept', wp.x, recapY, `R${round} Recap`);
                     recapNode.description = `⚖️ JUDGE: ${judgeModel} — Round ${round} Recap`;
                     recapNode.content = recapText;
@@ -2402,7 +2402,7 @@ Write concise, substantive paragraphs. Plain text only, no markdown headers. Be 
             transcript.appendChild(resMsg);
             transcript.scrollTop = transcript.scrollHeight;
 
-            const resNode = this.model.addNode('synthesis', wp.x, wp.y + (rounds + 1) * 120 + 60, 'Resolution');
+            const resNode = this.model.addNode('synthesis', wp.x, wp.y + (rounds + 1) * 140 + 70, 'Resolution');
             resNode.label = `Resolution: ${topic.slice(0, 30)}`;
             resNode.description = `⚖️ JUDGE: ${judgeModel} \u2014 ${numDebaters} debaters, ${rounds} rounds`;
             resNode.content = resolution;
