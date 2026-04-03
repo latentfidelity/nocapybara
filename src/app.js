@@ -2486,21 +2486,27 @@ Keep it strictly under 2 paragraphs. Use [[wiki links]] for key concepts. Format
             const resolutionPrompt = this._buildResolutionPrompt(topic, history, numDebaters);
             const judgeModel = this.debateJudgeModel || 'gemini-2.5-flash';
             const resultRes = await window.electronAPI.geminiRequest(resolutionPrompt, false, judgeModel);
-            const resolution = resultRes?.text || resultRes?.error || String(resultRes || '');
+            let rawResolution = resultRes?.text || resultRes?.error || String(resultRes || '');
+            
+            let resolutionTitle = `Resolution: ${topic.slice(0, 30)}`;
+            const titleMatch = rawResolution.match(/\*?\*?TITLE:\*?\*?\s*(.*)/im);
+            if (titleMatch) {
+                resolutionTitle = titleMatch[1].replace(/["']/g, '').trim();
+                rawResolution = rawResolution.replace(/\*?\*?TITLE:\*?\*?\s*(.*)\n*/im, '').trim();
+            }
 
             const resMsg = document.createElement('div');
             resMsg.className = 'debate-msg side-resolution';
             resMsg.innerHTML = `
                 <div class="debate-msg-header">\u25C6 RESOLUTION \u00B7 ${judgeModel}</div>
-                <div class="debate-msg-body">${renderMarkdown(String(resolution || ''))}</div>
+                <div class="debate-msg-body">${renderMarkdown(String(rawResolution || ''))}</div>
             `;
             transcript.appendChild(resMsg);
             transcript.scrollTop = transcript.scrollHeight;
 
-            const resNode = this.model.addNode('synthesis', wp.x, wp.y + (rounds + 1) * 140 + 70, 'Resolution');
-            resNode.label = `Resolution: ${topic.slice(0, 30)}`;
+            const resNode = this.model.addNode('synthesis', wp.x, wp.y + (rounds + 1) * 140 + 70, resolutionTitle);
             resNode.description = `⚖️ JUDGE: ${judgeModel} \u2014 ${numDebaters} debaters, ${rounds} rounds`;
-            resNode.content = resolution;
+            resNode.content = rawResolution;
             resNode.properties = {
                 type: 'resolution',
                 models: modelList.join(', '),
@@ -2517,7 +2523,7 @@ Keep it strictly under 2 paragraphs. Use [[wiki links]] for key concepts. Format
             this.model.addEdge(topicNode.id, resNode.id, 'resolves');
 
             topicNode._loading = false;
-            topicNode.content = `# Debate: ${topic}\n\nDebaters: ${this.debaters.map(d => `${d.emoji} ${d.letter}: ${d.model}`).join(', ')}\nRounds: ${rounds}\n\nSee [[Resolution: ${topic.slice(0, 30)}]] for the final truth document.`;
+            topicNode.content = `# Debate: ${topic}\n\nDebaters: ${this.debaters.map(d => `${d.emoji} ${d.letter}: ${d.model}`).join(', ')}\nRounds: ${rounds}\n\nSee [[${resolutionTitle}]] for the final truth document.`;
             this.renderer.markDirty();
 
             statusEl.textContent = '\u2713 DEBATE RESOLVED \u2014 Click any node to inspect';
@@ -2594,6 +2600,8 @@ FORMATTING GUIDE \u2014 You are writing inside the NoCapybara Epistemic Engine. 
         });
 
         prompt += `Now synthesize a FUNDAMENTAL TRUTH DOCUMENT. Strip away rhetoric, redundancy, and courtesy. Isolate the reality of the topic.
+
+IMPORTANT: Your VERY FIRST LINE must be exactly a five-word phrase summarizing the final conclusion, formatted strictly as: "TITLE: [Your five word conclusion here]"
 
 # Axiomatic Truths
 What is undeniably true based on the exchange? (What survived all Red Teaming?)
