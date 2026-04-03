@@ -160,7 +160,8 @@ class WorldModel {
                 label: n.label, description: n.description, content: n.content,
                 notes: n.notes, layer: n.layer, properties: n.properties,
                 epistemicStatus: n.epistemicStatus, confidence: n.confidence,
-                source: n.source, falsificationCondition: n.falsificationCondition
+                source: n.source, falsificationCondition: n.falsificationCondition,
+                _debaterColor: n._debaterColor
             })),
             edges: [...this.edges.values()].map(e => ({
                 id: e.id, from: e.from, to: e.to,
@@ -185,6 +186,7 @@ class WorldModel {
             node.confidence = typeof nd.confidence === 'number' ? nd.confidence : 0.5;
             node.source = nd.source || { type: 'user', timestamp: Date.now() };
             node.falsificationCondition = nd.falsificationCondition || '';
+            if (nd._debaterColor) node._debaterColor = nd._debaterColor;
             this.nodes.set(node.id, node);
         });
         (data.edges || []).forEach(ed => {
