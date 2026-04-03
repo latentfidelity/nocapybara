@@ -2355,7 +2355,6 @@ Write concise, substantive paragraphs. Plain text only, no markdown headers. Be 
         this._selectNode(topicNode);
 
         const history = [];
-        const lastNodes = this.debaters.map(() => topicNode);
 
         const addToTranscript = (letter, round, model, content, emoji) => {
             const msg = document.createElement('div');
@@ -2367,6 +2366,38 @@ Write concise, substantive paragraphs. Plain text only, no markdown headers. Be 
             transcript.appendChild(msg);
             transcript.scrollTop = transcript.scrollHeight;
         };
+
+        // Judge opening statement
+            const judgeModel = this.debateJudgeModel || 'gemini-2.5-flash';
+            statusEl.innerHTML = `<span class="thinking-dots">⚖️ Judge mapping debate vector</span>`;
+            const openerPrompt = `You are the JUDGE of an epistemic debate. A new topic has just been introduced by the user:
+
+"${topic}"
+
+Analyze this topic and "open the floor" for the debaters.
+1. Identify the core epistemic conflicts embedded in this topic.
+2. Outline the specific rules of engagement or critical failure modes the debaters must avoid.
+3. Formally invite the debaters to present their opening models.
+Keep it strictly under 2 paragraphs. Use [[wiki links]] for key concepts. Format as Markdown.`;
+
+            const openerResult = await window.electronAPI.geminiRequest(openerPrompt, false, judgeModel);
+            const openerText = openerResult?.text || openerResult?.error || String(openerResult || '');
+
+            addToTranscript('JUDGE', 'OPEN', judgeModel, openerText, '&#x2696;&#xFE0F;');
+
+            const openerNode = this.model.addNode('synthesis', wp.x, wp.y - 40, 'Opening Statement');
+            openerNode.description = `⚖️ JUDGE: ${judgeModel} — Opening Statement`;
+            openerNode.content = openerText;
+            openerNode.properties = { side: 'JUDGE', round: 'OPEN', model: judgeModel, _debaterColor: '#8ED1D1' };
+            openerNode._debaterColor = '#8ED1D1';
+            openerNode.source = { type: 'debate-recap', model: judgeModel, timestamp: Date.now() };
+
+            this.model.addEdge(topicNode.id, openerNode.id, 'evaluates');
+            this.renderer.markDirty();
+
+            // All debaters should stem from the Opening Statement
+            const lastNodes = this.debaters.map(() => openerNode);
+            history.push({ role: 'JUDGE', content: openerText });
 
         try {
             for (let round = 1; round <= rounds; round++) {
