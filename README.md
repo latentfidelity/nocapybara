@@ -12,7 +12,7 @@
 Ensure you have [Node.js](https://nodejs.org/) installed.
 
 ```bash
-git clone https://github.com/latentfidelity/reflect.git nocapybara
+git clone https://github.com/latentfidelity/nocapybara.git nocapybara
 cd nocapybara
 npm install
 ```
