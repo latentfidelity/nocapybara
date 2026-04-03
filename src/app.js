@@ -1307,11 +1307,18 @@ class ReflectApp {
                     this._openPageView();
                 }
                 break;
-            case 'branch-node':
+            case 'branch-node-write':
                 if (this._ctxTarget) {
                     this._clearSelection();
                     this._selectNode(this._ctxTarget);
-                    this._showBranchInput(this._ctxTarget);
+                    this._showBranchInput(this._ctxTarget, 'write');
+                }
+                break;
+            case 'branch-node-debate':
+                if (this._ctxTarget) {
+                    this._clearSelection();
+                    this._selectNode(this._ctxTarget);
+                    this._showBranchInput(this._ctxTarget, 'debate');
                 }
                 break;
             case 'template-concept':
@@ -1436,9 +1443,11 @@ class ReflectApp {
         }
     }
 
-    _showBranchInput(parentNode) {
-        // Remove any existing branch input
-        this._dismissBranchInput();
+    _showBranchInput(parentNode, intent = 'write') {
+        if (this._branchInputActive) {
+            this._dismissBranchInput();
+        }
+        this._branchInputActive = true;
 
         const typeDef = NexusModel.NODE_TYPES[parentNode.type] || NexusModel.NODE_TYPES.claim;
         const screenPos = this.renderer.worldToScreen(parentNode.x, parentNode.y);
@@ -1458,12 +1467,12 @@ class ReflectApp {
 
         const input = document.createElement('input');
         input.type = 'text';
-        input.placeholder = 'Branch from this node...';
+        input.placeholder = intent === 'debate' ? 'Debate topic...' : 'Branch from this node...';
         input.style.cssText = `
             width: 220px;
             padding: 6px 12px;
             background: rgba(17,17,17,0.95);
-            border: 2px solid ${typeDef.color};
+            border: 2px solid ${intent === 'debate' ? '#FF5555' : typeDef.color};
             border-radius: 14px;
             color: #fff;
             font-family: 'Space Grotesk', sans-serif;
@@ -1482,6 +1491,13 @@ class ReflectApp {
         const submit = () => {
             const text = input.value.trim();
             if (!text) { this._dismissBranchInput(); return; }
+
+            if (intent === 'debate') {
+                this._dismissBranchInput();
+                this._clearSelection();
+                this._startDebate(text, parentNode);
+                return;
+            }
 
             const angle = Math.random() * Math.PI * 2;
             const dist = 180 + Math.random() * 60;
@@ -2245,7 +2261,7 @@ Write concise, substantive paragraphs. Plain text only, no markdown headers. Be 
 
     // ======================== DEBATE ENGINE ========================
 
-    async _startDebate(topic) {
+    async _startDebate(topic, parentNode = null) {
         if (this._debateRunning) {
             this._status('[DEBATE ALREADY RUNNING]');
             return;
@@ -2254,9 +2270,21 @@ Write concise, substantive paragraphs. Plain text only, no markdown headers. Be 
             this._status('[NO AI AVAILABLE]');
             return;
         }
+        if (this.debaters.length < 2) {
+            this._status('[NEED AT LEAST 2 DEBATERS]');
+            return;
+        }
 
         this._debateRunning = true;
-        const rounds = parseInt(document.getElementById('debate-rounds').value) || 5;
+        const wp = this.renderer.screenToWorld(this.renderer.viewW / 2, this.renderer.viewH / 2);
+        
+        // If branching, spawn below the parent
+        if (parentNode) {
+            wp.x = parentNode.x;
+            wp.y = parentNode.y + 200;
+        }
+
+        const rounds = parseInt(document.getElementById('debate-rounds')?.value || 3);
         const mode = document.getElementById('debate-mode')?.value || 'standard';
         const numDebaters = this.debaters.length;
 
@@ -2277,9 +2305,11 @@ Write concise, substantive paragraphs. Plain text only, no markdown headers. Be 
             overlay.classList.add('hidden');
         };
 
-        // Create the topic node at center
-        const wp = this.renderer.screenToWorld(this.renderer.viewW / 2, this.renderer.viewH / 2);
+        // Create the topic node
         const topicNode = this.model.addNode('claim', wp.x, wp.y - 120, topic);
+        if (parentNode) {
+            this.model.addEdge(parentNode.id, topicNode.id, 'branch debate');
+        }
         topicNode.description = 'Debate topic';
         const modelList = this.debaters.map(d => d.model);
         topicNode.properties = {
