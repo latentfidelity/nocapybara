@@ -174,9 +174,13 @@ html, body {
     top: 50%;
     transform: translateY(-50%);
     font-family: 'Space Mono', monospace;
-    font-size: 10px;
+    font-size: 9px;
     color: var(--text-disabled);
     pointer-events: none;
+    border: 1px solid var(--border-visible);
+    border-radius: 3px;
+    padding: 1px 5px;
+    line-height: 1.4;
 }
 
 .topbar-right {

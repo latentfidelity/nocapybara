@@ -815,6 +815,77 @@ class ReflectApp {
         const modelLabel = document.getElementById('model-label');
 
         // Mode toggle
+        const writeHints = [
+            'What do you want to be true?',
+            'State a claim to investigate...',
+            'What assumption needs testing?',
+            'Describe what you observe...',
+            'What follows from this?',
+            'Where does the evidence point?',
+            'What would falsify this belief?',
+            'Connect two ideas...',
+        ];
+        const debateHints = [
+            'Consciousness is fundamental, not emergent',
+            'Free will is compatible with determinism',
+            'Mathematics is discovered, not invented',
+            'AI can never truly understand meaning',
+            'Morality requires a metaphysical foundation',
+            'The hard problem of consciousness is unsolvable',
+            'Emergence is explanatorily sufficient',
+            'Knowledge requires justified true belief',
+        ];
+
+        this._placeholderHints = { note: writeHints, debate: debateHints };
+        this._placeholderIndex = 0;
+        this._placeholderTimer = null;
+
+        this._startPlaceholderCycle = () => {
+            if (this._placeholderTimer) clearTimeout(this._placeholderTimer);
+            const input = document.getElementById('thought-input');
+            if (input.value.length > 0) return; // Don't animate if user is typing
+
+            const hints = this._placeholderHints[this.captureMode] || writeHints;
+            const hint = hints[this._placeholderIndex % hints.length];
+            let charIndex = 0;
+            let deleting = false;
+
+            const tick = () => {
+                if (input.value.length > 0) return; // User started typing
+
+                if (!deleting) {
+                    input.placeholder = hint.slice(0, charIndex);
+                    charIndex++;
+                    if (charIndex > hint.length) {
+                        deleting = true;
+                        this._placeholderTimer = setTimeout(tick, 2000); // Pause before delete
+                        return;
+                    }
+                    this._placeholderTimer = setTimeout(tick, 40 + Math.random() * 30);
+                } else {
+                    charIndex--;
+                    input.placeholder = hint.slice(0, charIndex);
+                    if (charIndex === 0) {
+                        this._placeholderIndex++;
+                        this._placeholderTimer = setTimeout(() => this._startPlaceholderCycle(), 300);
+                        return;
+                    }
+                    this._placeholderTimer = setTimeout(tick, 20);
+                }
+            };
+            tick();
+        };
+
+        // Start the cycle
+        this._startPlaceholderCycle();
+
+        // Restart when input is emptied
+        document.getElementById('thought-input').addEventListener('input', () => {
+            if (document.getElementById('thought-input').value.length === 0) {
+                setTimeout(() => this._startPlaceholderCycle(), 500);
+            }
+        });
+
         document.querySelectorAll('.mode-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
@@ -822,8 +893,9 @@ class ReflectApp {
                 this.captureMode = btn.dataset.mode;
                 document.getElementById('note-controls').classList.toggle('hidden', btn.dataset.mode !== 'note');
                 document.getElementById('debate-controls').classList.toggle('hidden', btn.dataset.mode !== 'debate');
-                document.getElementById('thought-input').placeholder =
-                    btn.dataset.mode === 'debate' ? 'Enter a debate topic...' : 'Ask a question...';
+                // Reset placeholder cycle for new mode
+                this._placeholderIndex = 0;
+                this._startPlaceholderCycle();
             });
         });
 
