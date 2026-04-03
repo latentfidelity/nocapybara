@@ -143,6 +143,9 @@
                         <label class="option-row"><input type="checkbox" id="opt-status-bar" checked> Show Status Bar</label>
                         <label class="option-row"><input type="checkbox" id="opt-empty-state" checked> Show Empty State Hint</label>
 
+                        <div class="options-section">GRAPH</div>
+                        <label class="option-row"><input type="checkbox" id="opt-physics" checked> Force-Directed Physics</label>
+
                         <div class="options-section">DATA</div>
                         <button id="opt-export-all" class="option-btn">↓ EXPORT ALL AS MARKDOWN</button>
                         <button id="opt-clear-data" class="option-btn danger">⚠ CLEAR ALL DATA</button>
@@ -295,56 +298,72 @@
                 <div id="help-overlay" class="help-overlay hidden">
                     <div class="help-panel">
                         <div class="help-header">
-                            <span>REFLECT — ALL SHORTCUTS</span>
+                            <span>NOCAPYBARA &#x2014; ALL SHORTCUTS</span>
                             <button id="help-close" class="panel-close">×</button>
                         </div>
                         <div class="help-grid">
                             <div class="help-section">CANVAS</div><div></div>
                             <div class="help-key">DBL-CLICK</div><div class="help-desc">NEW NODE</div>
+                            <div class="help-key">CLICK SELECTED</div><div class="help-desc">BRANCH FROM NODE</div>
                             <div class="help-key">SHIFT+CLICK</div><div class="help-desc">MULTI-SELECT</div>
                             <div class="help-key">SHIFT+DRAG</div><div class="help-desc">SELECTION BOX</div>
                             <div class="help-key">ALT+DRAG</div><div class="help-desc">CONNECT NODES</div>
                             <div class="help-key">DRAG</div><div class="help-desc">PAN CANVAS</div>
                             <div class="help-key">SCROLL</div><div class="help-desc">ZOOM</div>
-                            <div class="help-key">DEL / ⌫</div><div class="help-desc">DELETE SELECTED</div>
+                            <div class="help-key">DEL / &#x232B;</div><div class="help-desc">DELETE SELECTED</div>
                             <div class="help-key">RIGHT-CLICK</div><div class="help-desc">CONTEXT MENU + TEMPLATES</div>
 
                             <div class="help-section">NAVIGATION</div><div></div>
-                            <div class="help-key">⌘ P</div><div class="help-desc">QUICK SWITCHER</div>
+                            <div class="help-key">&#x2318; P</div><div class="help-desc">QUICK SWITCHER</div>
                             <div class="help-key">/</div><div class="help-desc">SEARCH (TEXT + #TAGS)</div>
-                            <div class="help-key">⌘ A</div><div class="help-desc">SELECT ALL</div>
-                            <div class="help-key">⌘ 0</div><div class="help-desc">FIT VIEW</div>
-                            <div class="help-key">⌘ +/−</div><div class="help-desc">ZOOM IN/OUT</div>
+                            <div class="help-key">&#x2318; A</div><div class="help-desc">SELECT ALL</div>
+                            <div class="help-key">&#x2318; 0</div><div class="help-desc">FIT VIEW</div>
+                            <div class="help-key">&#x2318; +/&#x2212;</div><div class="help-desc">ZOOM IN/OUT</div>
                             <div class="help-key">ESC</div><div class="help-desc">CLEAR / CLOSE</div>
 
                             <div class="help-section">KNOWLEDGE</div><div></div>
-                            <div class="help-key">⌘ D</div><div class="help-desc">DAILY NOTE</div>
+                            <div class="help-key">&#x2318; D</div><div class="help-desc">DAILY NOTE</div>
                             <div class="help-key">[[NAME]]</div><div class="help-desc">WIKI LINK</div>
                             <div class="help-key">![[NAME]]</div><div class="help-desc">EMBED NOTE</div>
                             <div class="help-key">#TAG</div><div class="help-desc">ADD TAG (SEARCHABLE)</div>
-                            <div class="help-key">☆ BUTTON</div><div class="help-desc">STAR / BOOKMARK</div>
-                            <div class="help-key">↓ MD</div><div class="help-desc">EXPORT TO MARKDOWN</div>
-                            <div class="help-key">⫼ BUTTON</div><div class="help-desc">SPLIT PANE VIEW</div>
+                            <div class="help-key">&#x2606; BUTTON</div><div class="help-desc">STAR / BOOKMARK</div>
+                            <div class="help-key">&#x2193; MD</div><div class="help-desc">EXPORT TO MARKDOWN</div>
+                            <div class="help-key">&#x2AFC; BUTTON</div><div class="help-desc">SPLIT PANE VIEW</div>
 
                             <div class="help-section">MODES</div><div></div>
                             <div class="help-key">WRITE</div><div class="help-desc">SINGLE MODEL, AI-EXPANDED NOTES</div>
-                            <div class="help-key">DEBATE</div><div class="help-desc">TWO MODELS DEBATE → RESOLUTION</div>
+                            <div class="help-key">DEBATE</div><div class="help-desc">2&#x2013;5 MODELS DEBATE &#x2192; RESOLUTION</div>
                             <div class="help-key">ENTER</div><div class="help-desc">CAPTURE THOUGHT / START DEBATE</div>
-                            <div class="help-key">⌘ S</div><div class="help-desc">SAVE</div>
+                            <div class="help-key">&#x2318; S</div><div class="help-desc">SAVE</div>
+
+                            <div class="help-section">NODE TYPES</div><div></div>
+                            <div class="help-key" style="color:#7EAAE2">&#x25CF; CLAIM</div><div class="help-desc">ASSERTION TO BE EXAMINED</div>
+                            <div class="help-key" style="color:#6EBF8B">&#x25CF; EVIDENCE</div><div class="help-desc">SUPPORTING DATA / FACTS</div>
+                            <div class="help-key" style="color:#C4A6E0">&#x25CF; ARGUMENT</div><div class="help-desc">LOGICAL REASONING CHAIN</div>
+                            <div class="help-key" style="color:#E8C96E">&#x25CF; AXIOM</div><div class="help-desc">FOUNDATIONAL ASSUMPTION</div>
+                            <div class="help-key" style="color:#E0866E">&#x25CF; QUESTION</div><div class="help-desc">OPEN INQUIRY TO RESOLVE</div>
+                            <div class="help-key" style="color:#8ED1D1">&#x25CF; SYNTHESIS</div><div class="help-desc">CONVERGENT TRUTH DOCUMENT</div>
+
+                            <div class="help-section">DEBATE MODES</div><div></div>
+                            <div class="help-key">&#x2694; STANDARD</div><div class="help-desc">ADVERSARIAL EXCHANGE</div>
+                            <div class="help-key">&#x1F6E1; STEEL MAN</div><div class="help-desc">STRENGTHEN BEFORE CHALLENGING</div>
+                            <div class="help-key">&#x1F534; RED TEAM</div><div class="help-desc">ATTACK WEAKEST LOGICAL LINKS</div>
+                            <div class="help-key">&#x1F3DB; SOCRATIC</div><div class="help-desc">QUESTION-DRIVEN EXAMINATION</div>
                         </div>
                     </div>
                 </div>
                 <!-- Context Menu -->
                 <div id="context-menu" class="context-menu hidden">
-                    <div class="context-menu-item" data-action="add-idea">ADD IDEA</div>
-                    <div class="context-menu-item" data-action="add-topic">ADD TOPIC</div>
-                    <div class="context-menu-item" data-action="add-note">ADD NOTE</div>
-                    <div class="context-menu-item" data-action="add-rule">ADD RULE</div>
-                    <div class="context-menu-item" data-action="add-event">ADD EVENT</div>
-                    <div class="context-menu-item" data-action="add-detail">ADD DETAIL</div>
+                    <div class="context-menu-item" data-action="add-claim">&#x25CF; ADD CLAIM</div>
+                    <div class="context-menu-item" data-action="add-evidence">&#x25CF; ADD EVIDENCE</div>
+                    <div class="context-menu-item" data-action="add-argument">&#x25CF; ADD ARGUMENT</div>
+                    <div class="context-menu-item" data-action="add-axiom">&#x25CF; ADD AXIOM</div>
+                    <div class="context-menu-item" data-action="add-question">&#x25CF; ADD QUESTION</div>
+                    <div class="context-menu-item" data-action="add-synthesis">&#x25CF; ADD SYNTHESIS</div>
                     <div class="context-menu-sep"></div>
                     <div class="context-menu-item" data-action="select-all">SELECT ALL</div>
                     <div class="context-menu-item" data-action="fit-view">FIT VIEW</div>
+                    <div class="context-menu-item" data-action="toggle-physics">&#x2699; TOGGLE PHYSICS</div>
                 </div>
                 <div id="node-context-menu" class="context-menu hidden">
                     <div class="context-menu-item" data-action="edit-node">EDIT</div>

@@ -249,6 +249,15 @@ class GraphRenderer {
             ctx.restore();
         }
 
+        // Post-processing: Subtle chromatic aberration / bloom
+        // We replicate the canvas lightly with color offsets and 'screen' composite
+        ctx.save();
+        ctx.globalCompositeOperation = 'screen';
+        ctx.globalAlpha = 0.08;
+        ctx.drawImage(this.canvas, -2, 0); // Red/left shift
+        ctx.drawImage(this.canvas, 2, 0);  // Blue/right shift
+        ctx.restore();
+
         ctx.restore();
     }
 
@@ -294,7 +303,11 @@ class GraphRenderer {
     }
 
     _drawNode(ctx, node) {
-        const typeDef = NexusModel.NODE_TYPES[node.type] || NexusModel.NODE_TYPES.claim;
+        let typeDef = NexusModel.NODE_TYPES[node.type] || NexusModel.NODE_TYPES.claim;
+        // Override color for debate nodes with debater color
+        if (node._debaterColor) {
+            typeDef = { ...typeDef, color: node._debaterColor, glow: node._debaterColor.replace(')', ',0.15)').replace('rgb(', 'rgba(') };
+        }
         const isSelected = node.selected;
         const isHovered = node.hovered;
         const hasContent = node.content && node.content.length > 0;
@@ -516,19 +529,25 @@ class GraphRenderer {
         if (nodes.length < 2) return;
 
         const s = this._physicsStrength;
-        const repulsion = 8000 * s;
-        const springK = 0.005 * s;
-        const springLen = 200;
-        const centerK = 0.001 * s;
-        const damping = 0.85;
-        const minMove = 0.01;
+        const repulsion = 2000 * s;
+        const springK = 0.002 * s;
+        const springLen = 160;
+        const centerK = 0.0003 * s;
+        const damping = 0.7;
+        const minMove = 0.05;
 
         let totalMovement = 0;
 
         // Init velocity if needed
         nodes.forEach(n => {
-            if (!n._vx) { n._vx = 0; n._vy = 0; }
+            if (n._vx == null) { n._vx = 0; n._vy = 0; }
         });
+
+        // Compute graph centroid for centering (NOT camera)
+        let cx = 0, cy = 0;
+        nodes.forEach(n => { cx += n.x; cy += n.y; });
+        cx /= nodes.length;
+        cy /= nodes.length;
 
         // Repulsion between all node pairs
         for (let i = 0; i < nodes.length; i++) {
@@ -536,7 +555,7 @@ class GraphRenderer {
                 const a = nodes[i], b = nodes[j];
                 let dx = b.x - a.x, dy = b.y - a.y;
                 let dist = Math.hypot(dx, dy) || 1;
-                if (dist > 600) continue; // Skip far nodes
+                if (dist > 400) continue;
                 const force = repulsion / (dist * dist);
                 const fx = (dx / dist) * force;
                 const fy = (dy / dist) * force;
@@ -560,8 +579,7 @@ class GraphRenderer {
             if (this._draggedNode !== b) { b._vx -= fx; b._vy -= fy; }
         });
 
-        // Center gravity
-        const cx = this.cam.x, cy = this.cam.y;
+        // Gentle center gravity (toward graph centroid, not camera)
         nodes.forEach(n => {
             if (this._draggedNode === n) return;
             n._vx -= (n.x - cx) * centerK;
@@ -575,15 +593,14 @@ class GraphRenderer {
             n._vy *= damping;
             const move = Math.hypot(n._vx, n._vy);
             if (move > minMove) {
-                // Cap velocity
-                if (move > 10) { n._vx *= 10/move; n._vy *= 10/move; }
+                if (move > 4) { n._vx *= 4/move; n._vy *= 4/move; }
                 n.x += n._vx;
                 n.y += n._vy;
                 totalMovement += move;
             }
         });
 
-        if (totalMovement > 0.1) {
+        if (totalMovement > 0.5) {
             this.markDirty();
         }
     }

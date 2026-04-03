@@ -1102,6 +1102,16 @@ class ReflectApp {
             }
         });
 
+        // Physics toggle
+        const physicsEl = document.getElementById('opt-physics');
+        if (physicsEl) {
+            physicsEl.checked = this.renderer.physicsEnabled;
+            physicsEl.addEventListener('change', () => {
+                this.renderer.physicsEnabled = physicsEl.checked;
+                this._status(physicsEl.checked ? '[PHYSICS ON]' : '[PHYSICS OFF]');
+            });
+        }
+
         // Export all
         document.getElementById('opt-export-all').addEventListener('click', () => {
             this._exportAllMarkdown();
@@ -1281,6 +1291,10 @@ class ReflectApp {
                 break;
             case 'template-research':
                 if (this._ctxTarget) this._applyTemplate(this._ctxTarget, 'research');
+                break;
+            case 'toggle-physics':
+                this.renderer.physicsEnabled = !this.renderer.physicsEnabled;
+                this._status(this.renderer.physicsEnabled ? '[PHYSICS ON]' : '[PHYSICS OFF]');
                 break;
         }
     }
@@ -2279,11 +2293,22 @@ Write concise, substantive paragraphs. Plain text only, no markdown headers. Be 
                     const nx = wp.x + Math.cos(angle) * rx;
                     const ny = wp.y + round * 120;
 
-                    const node = this.model.addNode('argument', nx, ny, `R${round} \u2014 ${debater.letter}`);
-                    node.label = `Round ${round}: Model ${debater.letter}`;
-                    node.description = `${debater.model} \u2014 Round ${round}`;
+                    // Derive label from content — first heading or first sentence
+                    let derivedLabel = `R${round} ${debater.letter}`;
+                    const headingMatch = response.match(/^#+\s+(.+)/m);
+                    if (headingMatch) {
+                        derivedLabel = headingMatch[1].slice(0, 40);
+                    } else {
+                        const firstSentence = response.split(/[.!?\n]/)[0]?.trim();
+                        if (firstSentence) derivedLabel = firstSentence.slice(0, 40);
+                    }
+                    if (derivedLabel.length >= 40) derivedLabel += '\u2026';
+
+                    const node = this.model.addNode('argument', nx, ny, derivedLabel);
+                    node.description = `${debater.emoji} ${debater.letter}: ${debater.model} \u2014 Round ${round}`;
                     node.content = response;
                     node.properties = { side: debater.letter, round: round.toString(), model: debater.model };
+                    node._debaterColor = debater.color;
                     node.source = { type: 'debate-round', model: debater.model, timestamp: Date.now() };
                     node.epistemicStatus = 'hypothesis';
 
