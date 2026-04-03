@@ -1,5 +1,5 @@
 /* ============================================
-   REFLECT — Nothing Design System
+   NOCAPYBARA — Truth-Seeking Design System
    OLED black, Space Grotesk + Space Mono,
    flat surfaces, mechanical precision
    ============================================ */
@@ -72,7 +72,9 @@ html, body {
 
 #topbar {
     height: var(--topbar-height);
-    background: var(--black);
+    background: rgba(0,0,0,0.85);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     border-bottom: 1px solid var(--border);
     display: flex;
     align-items: center;
@@ -229,7 +231,9 @@ html, body {
 
 #panel-left {
     width: var(--panel-width);
-    background: var(--black);
+    background: rgba(0,0,0,0.92);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     border-right: 1px solid var(--border);
     display: flex;
     flex-direction: column;
@@ -240,7 +244,9 @@ html, body {
 
 #panel-right {
     width: 320px;
-    background: var(--black);
+    background: rgba(0,0,0,0.92);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     border-left: 1px solid var(--border);
     display: flex;
     flex-direction: column;
@@ -646,13 +652,18 @@ html, body {
     align-items: flex-start;
     gap: var(--space-sm);
     padding: 10px 14px;
-    background: var(--surface);
+    background: rgba(17,17,17,0.9);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
     border: 1px solid var(--border);
-    transition: border-color var(--speed-fast) var(--ease);
+    border-radius: 6px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+    transition: border-color var(--speed-fast) var(--ease), box-shadow var(--speed-fast) var(--ease);
 }
 
 .thought-bar-inner:focus-within {
     border-color: var(--border-visible);
+    box-shadow: 0 4px 24px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.05);
 }
 
 #thought-input {
