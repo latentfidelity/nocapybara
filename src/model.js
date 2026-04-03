@@ -11,6 +11,15 @@ const NODE_TYPES = {
     detail:   { label: 'Detail',  color: '#9e9e9e', glow: 'rgba(158,158,158,0.15)',  shape: 'rect' },
 };
 
+const EPISTEMIC_STATUSES = {
+    conjecture:  { label: 'Conjecture',  color: '#666666', ring: 'rgba(102,102,102,0.6)' },
+    hypothesis:  { label: 'Hypothesis',  color: '#8888aa', ring: 'rgba(136,136,170,0.6)' },
+    supported:   { label: 'Supported',   color: '#44aa66', ring: 'rgba(68,170,102,0.6)' },
+    contested:   { label: 'Contested',   color: '#cc8833', ring: 'rgba(204,136,51,0.7)' },
+    established: { label: 'Established', color: '#33bb55', ring: 'rgba(51,187,85,0.8)' },
+    falsified:   { label: 'Falsified',   color: '#cc3333', ring: 'rgba(204,51,51,0.7)' },
+};
+
 let _idCounter = 0;
 function genId(prefix = 'n') {
     return `${prefix}_${Date.now().toString(36)}_${(++_idCounter).toString(36)}`;
@@ -33,6 +42,11 @@ class NexusNode {
         this.selected = false;
         this.hovered = false;
         this.pinned = false;
+        // Epistemics
+        this.epistemicStatus = 'conjecture';
+        this.confidence = 0.5;
+        this.source = { type: 'user', timestamp: Date.now() };
+        this.falsificationCondition = '';
     }
 }
 
@@ -144,7 +158,9 @@ class WorldModel {
             nodes: [...this.nodes.values()].map(n => ({
                 id: n.id, type: n.type, x: n.x, y: n.y,
                 label: n.label, description: n.description, content: n.content,
-                notes: n.notes, layer: n.layer, properties: n.properties
+                notes: n.notes, layer: n.layer, properties: n.properties,
+                epistemicStatus: n.epistemicStatus, confidence: n.confidence,
+                source: n.source, falsificationCondition: n.falsificationCondition
             })),
             edges: [...this.edges.values()].map(e => ({
                 id: e.id, from: e.from, to: e.to,
@@ -165,6 +181,10 @@ class WorldModel {
             node.notes = nd.notes || '';
             node.layer = nd.layer || 'default';
             node.properties = nd.properties || {};
+            node.epistemicStatus = nd.epistemicStatus || 'conjecture';
+            node.confidence = typeof nd.confidence === 'number' ? nd.confidence : 0.5;
+            node.source = nd.source || { type: 'user', timestamp: Date.now() };
+            node.falsificationCondition = nd.falsificationCondition || '';
             this.nodes.set(node.id, node);
         });
         (data.edges || []).forEach(ed => {
@@ -197,7 +217,7 @@ class WorldModel {
 
 // Export for both module and script contexts
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { NODE_TYPES, NexusNode, NexusEdge, WorldModel, genId };
+    module.exports = { NODE_TYPES, EPISTEMIC_STATUSES, NexusNode, NexusEdge, WorldModel, genId };
 } else {
-    window.NexusModel = { NODE_TYPES, NexusNode, NexusEdge, WorldModel, genId };
+    window.NexusModel = { NODE_TYPES, EPISTEMIC_STATUSES, NexusNode, NexusEdge, WorldModel, genId };
 }

@@ -486,6 +486,7 @@ class ReflectApp {
         this._renderCustomProperties(node);
         this._renderConnections(node);
         this._renderBacklinks(node);
+        this._renderEpistemics(node);
 
         // Star state
         document.getElementById('btn-star-node').textContent =
@@ -1256,6 +1257,7 @@ Thought: "${text.replace(/"/g, '\\"')}"`;
 
         this._status('[STREAMING...]');
         node._loading = true;
+        node.source = { type: 'ai-expanded', model: this.selectedModel, timestamp: Date.now() };
         this.renderer.markDirty();
         let fullResponse = '';
         let headerParsed = false;
@@ -1691,6 +1693,61 @@ Write concise, substantive paragraphs. Plain text only, no markdown headers. Be 
         });
     }
 
+    _renderEpistemics(node) {
+        const container = document.getElementById('epistemic-controls');
+        if (!container) return;
+
+        const statuses = NexusModel.EPISTEMIC_STATUSES;
+        const currentEpi = statuses[node.epistemicStatus] || statuses.conjecture;
+        const sourceLabels = {
+            'user': '👤 User',
+            'ai-expanded': '🤖 AI Expanded',
+            'debate-round': '⚔ Debate Round',
+            'debate-resolution': '◆ Resolution',
+            'import': '📥 Imported',
+            'grounded': '🔍 Grounded',
+        };
+        const sourceLabel = sourceLabels[node.source?.type] || '👤 User';
+
+        container.innerHTML = `
+            <div class="epistemic-row">
+                <label class="epistemic-label">EPISTEMIC STATUS</label>
+                <select id="epistemic-status-select" class="inspector-select">
+                    ${Object.entries(statuses).map(([key, val]) =>
+                        `<option value="${key}" ${key === node.epistemicStatus ? 'selected' : ''}>${val.label}</option>`
+                    ).join('')}
+                </select>
+            </div>
+            <div class="epistemic-row">
+                <label class="epistemic-label">CONFIDENCE <span id="confidence-val">${Math.round(node.confidence * 100)}%</span></label>
+                <input type="range" id="confidence-slider" min="0" max="100" value="${Math.round(node.confidence * 100)}" class="confidence-slider">
+            </div>
+            <div class="epistemic-row">
+                <label class="epistemic-label">SOURCE</label>
+                <span class="source-badge" style="color:${currentEpi.color}">${sourceLabel}</span>
+            </div>
+            <div class="epistemic-row">
+                <label class="epistemic-label">FALSIFICATION CONDITION</label>
+                <textarea id="falsification-input" class="inspector-textarea" rows="2" placeholder="This claim would be falsified if...">${this._esc(node.falsificationCondition || '')}</textarea>
+            </div>
+        `;
+
+        document.getElementById('epistemic-status-select').onchange = (e) => {
+            node.epistemicStatus = e.target.value;
+            this.renderer.markDirty();
+            this._renderEpistemics(node);
+        };
+
+        document.getElementById('confidence-slider').oninput = (e) => {
+            node.confidence = parseInt(e.target.value) / 100;
+            document.getElementById('confidence-val').textContent = e.target.value + '%';
+        };
+
+        document.getElementById('falsification-input').oninput = (e) => {
+            node.falsificationCondition = e.target.value;
+        };
+    }
+
     // ======================== PAGE VIEW ========================
 
     _openPageView() {
@@ -1974,6 +2031,8 @@ Write concise, substantive paragraphs. Plain text only, no markdown headers. Be 
                 nodeA.description = `${this.debateModelA} — Round ${round}`;
                 nodeA.content = responseA;
                 nodeA.properties = { side: 'A', round: round.toString(), model: this.debateModelA };
+                nodeA.source = { type: 'debate-round', model: this.debateModelA, timestamp: Date.now() };
+                nodeA.epistemicStatus = 'hypothesis';
                 this.model.addEdge(lastNodeA.id, nodeA.id, round === 1 ? 'opens' : 'responds');
                 lastNodeA = nodeA;
                 history.push({ role: 'A', round, content: responseA });
@@ -1993,6 +2052,8 @@ Write concise, substantive paragraphs. Plain text only, no markdown headers. Be 
                 nodeB.description = `${this.debateModelB} — Round ${round}`;
                 nodeB.content = responseB;
                 nodeB.properties = { side: 'B', round: round.toString(), model: this.debateModelB };
+                nodeB.source = { type: 'debate-round', model: this.debateModelB, timestamp: Date.now() };
+                nodeB.epistemicStatus = 'hypothesis';
                 this.model.addEdge(lastNodeB.id, nodeB.id, round === 1 ? 'opens' : 'responds');
                 this.model.addEdge(nodeA.id, nodeB.id, 'counters');
                 lastNodeB = nodeB;
@@ -2021,6 +2082,9 @@ Write concise, substantive paragraphs. Plain text only, no markdown headers. Be 
                 rounds: rounds.toString(),
                 topic: topic
             };
+            resNode.source = { type: 'debate-resolution', model: this.debateModelA, timestamp: Date.now() };
+            resNode.epistemicStatus = 'supported';
+            resNode.confidence = 0.7;
 
             this.model.addEdge(lastNodeA.id, resNode.id, 'synthesizes');
             this.model.addEdge(lastNodeB.id, resNode.id, 'synthesizes');

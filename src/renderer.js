@@ -304,6 +304,20 @@ class GraphRenderer {
             this.markDirty();
         }
 
+        // Epistemic status ring
+        const epi = NexusModel.EPISTEMIC_STATUSES[node.epistemicStatus];
+        if (epi && node.epistemicStatus !== 'conjecture') {
+            ctx.save();
+            ctx.strokeStyle = epi.ring;
+            ctx.lineWidth = 2.5;
+            ctx.setLineDash([3, 3]);
+            if (node.epistemicStatus === 'established') ctx.setLineDash([]);
+            ctx.beginPath();
+            ctx.arc(node.x, node.y, radius + 4, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.restore();
+        }
+
         // Selection highlight — bright outer glow ring
         if (isSelected) {
             ctx.save();

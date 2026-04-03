@@ -489,6 +489,78 @@ html, body {
     font-size: 8px;
 }
 
+/* Epistemic controls */
+.epistemic-row {
+    margin-bottom: 8px;
+}
+
+.epistemic-label {
+    display: block;
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.08em;
+    color: var(--text-disabled);
+    margin-bottom: 4px;
+}
+
+.epistemic-label span {
+    float: right;
+    color: var(--text-secondary);
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 11px;
+}
+
+.confidence-slider {
+    width: 100%;
+    height: 4px;
+    -webkit-appearance: none;
+    appearance: none;
+    background: rgba(255,255,255,0.08);
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+}
+
+.confidence-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--text-secondary);
+    border: 1px solid var(--border-visible);
+    cursor: pointer;
+    transition: background var(--speed-fast) var(--ease);
+}
+
+.confidence-slider::-webkit-slider-thumb:hover {
+    background: var(--text-primary);
+}
+
+.source-badge {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.04em;
+}
+
+#falsification-input {
+    width: 100%;
+    background: var(--input-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text-secondary);
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 12px;
+    padding: 6px 8px;
+    resize: vertical;
+    transition: border-color var(--speed-fast) var(--ease);
+}
+
+#falsification-input:focus {
+    border-color: var(--border-visible);
+    outline: none;
+}
+
 .pages-empty {
     padding: var(--space-xl) var(--space-md);
     text-align: center;
