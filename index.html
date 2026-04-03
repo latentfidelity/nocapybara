@@ -110,7 +110,7 @@
                 <!-- Footer -->
                 <div class="panel-footer">
                     <button id="btn-help" class="help-btn">?</button>
-                    <button id="btn-settings" class="help-btn" style="font-size:20px; width:32px; height:32px;">⚙</button>
+                    <button id="btn-settings" class="help-btn settings-btn">&#x2699;</button>
                 </div>
             </aside>
 
@@ -161,8 +161,8 @@
                 <!-- Thought Capture -->
                 <div id="thought-bar">
                     <div class="thought-bar-inner">
-                        <textarea id="thought-input" placeholder="Stream of consciousness..." rows="1"></textarea>
-                        <button id="thought-submit" class="thought-submit">↵</button>
+                        <textarea id="thought-input" placeholder="Ask a question..." rows="1"></textarea>
+                        <button id="thought-submit" class="thought-submit" title="Submit">&#x2192;</button>
                     </div>
                     <div class="thought-toolbar">
                         <div class="mode-toggle">
@@ -197,19 +197,43 @@
                     </div>
                     <!-- Model popup menu (shared) -->
                     <div id="model-menu" class="thought-popup hidden">
-                        <div class="thought-popup-item" data-model="gemini-3.1-pro-preview">◆ 3.1 PRO</div>
-                        <div class="thought-popup-item" data-model="gemini-3-pro-preview">◆ 3 PRO</div>
-                        <div class="thought-popup-item" data-model="gemini-3-flash-preview">⚡ 3 FLASH</div>
-                        <div class="thought-popup-item" data-model="gemini-3.1-flash-lite-preview">◇ 3.1 LITE</div>
+                        <div class="thought-popup-header">GOOGLE</div>
+                        <div class="thought-popup-item" data-model="gemini-3.1-pro-preview">&#x25C6; 3.1 PRO (Google)</div>
+                        <div class="thought-popup-item" data-model="gemini-3-pro-preview">&#x25C6; 3 PRO (Google)</div>
+                        <div class="thought-popup-item" data-model="gemini-3-flash-preview">&#x26A1; 3 FLASH (Google)</div>
+                        <div class="thought-popup-item" data-model="gemini-3.1-flash-lite-preview">&#x25C7; 3.1 LITE (Google)</div>
                         <div class="thought-popup-sep"></div>
-                        <div class="thought-popup-item" data-model="gemini-2.5-pro">◆ 2.5 PRO</div>
-                        <div class="thought-popup-item" data-model="gemini-2.5-flash">⚡ 2.5 FLASH</div>
-                        <div class="thought-popup-item" data-model="gemini-2.5-flash-lite">◇ 2.5 LITE</div>
+                        <div class="thought-popup-item" data-model="gemini-2.5-pro">&#x25C6; 2.5 PRO (Google)</div>
+                        <div class="thought-popup-item" data-model="gemini-2.5-flash">&#x26A1; 2.5 FLASH (Google)</div>
+                        <div class="thought-popup-item" data-model="gemini-2.5-flash-lite">&#x25C7; 2.5 LITE (Google)</div>
                         <div class="thought-popup-sep"></div>
-                        <div class="thought-popup-item" data-model="gemini-2.0-flash">○ 2.0 FLASH</div>
-                        <div class="thought-popup-item" data-model="gemini-2.0-flash-lite">○ 2.0 LITE</div>
+                        <div class="thought-popup-item" data-model="deep-research-pro-preview-12-2025">&#x25C8; DEEP RESEARCH (Google)</div>
                         <div class="thought-popup-sep"></div>
-                        <div class="thought-popup-item" data-model="deep-research-pro-preview-12-2025">◈ DEEP RESEARCH</div>
+                        <div class="thought-popup-header">ANTHROPIC</div>
+                        <div class="thought-popup-item" data-model="or:anthropic/claude-sonnet-4">&#x25C6; Claude Sonnet 4 (Anthropic)</div>
+                        <div class="thought-popup-item" data-model="or:anthropic/claude-3.5-sonnet">&#x25C6; Claude 3.5 Sonnet (Anthropic)</div>
+                        <div class="thought-popup-item" data-model="or:anthropic/claude-3.5-haiku">&#x26A1; Claude 3.5 Haiku (Anthropic)</div>
+                        <div class="thought-popup-sep"></div>
+                        <div class="thought-popup-header">OPENAI</div>
+                        <div class="thought-popup-item" data-model="or:openai/gpt-4o">&#x25C6; GPT-4o (OpenAI)</div>
+                        <div class="thought-popup-item" data-model="or:openai/gpt-4o-mini">&#x26A1; GPT-4o Mini (OpenAI)</div>
+                        <div class="thought-popup-item" data-model="or:openai/o4-mini">&#x25C8; o4-mini (OpenAI)</div>
+                        <div class="thought-popup-sep"></div>
+                        <div class="thought-popup-header">META</div>
+                        <div class="thought-popup-item" data-model="or:meta-llama/llama-4-maverick">&#x25C6; Llama 4 Maverick (Meta)</div>
+                        <div class="thought-popup-item" data-model="or:meta-llama/llama-4-scout">&#x26A1; Llama 4 Scout (Meta)</div>
+                        <div class="thought-popup-sep"></div>
+                        <div class="thought-popup-header">DEEPSEEK</div>
+                        <div class="thought-popup-item" data-model="or:deepseek/deepseek-r1">&#x25C8; DeepSeek R1 (DeepSeek)</div>
+                        <div class="thought-popup-item" data-model="or:deepseek/deepseek-chat-v3-0324">&#x25C6; DeepSeek V3 (DeepSeek)</div>
+                        <div class="thought-popup-sep"></div>
+                        <div class="thought-popup-header">MISTRAL</div>
+                        <div class="thought-popup-item" data-model="or:mistralai/mistral-large-2411">&#x25C6; Mistral Large (Mistral)</div>
+                        <div class="thought-popup-item" data-model="or:mistralai/codestral-2501">&#x26A1; Codestral (Mistral)</div>
+                        <div class="thought-popup-sep"></div>
+                        <div class="thought-popup-header">QWEN</div>
+                        <div class="thought-popup-item" data-model="or:qwen/qwen3-235b-a22b">&#x25C6; Qwen3 235B (Qwen)</div>
+                        <div class="thought-popup-item" data-model="or:qwen/qwen3-32b">&#x26A1; Qwen3 32B (Qwen)</div>
                     </div>
                 </div>
                 <!-- Debate Transcript Modal -->
