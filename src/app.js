@@ -2334,7 +2334,9 @@ Write concise, substantive paragraphs. Plain text only, no markdown headers. Be 
         };
 
         // Create the topic node
-        const topicNode = this.model.addNode('claim', wp.x, wp.y - 120, topic);
+        const truncatedTopic = topic.length > 50 ? topic.slice(0, 50) + '...' : topic;
+        const topicNode = this.model.addNode('claim', wp.x, wp.y - 120, truncatedTopic);
+        topicNode.content = topic; // Store full topic
         if (parentNode) {
             this.model.addEdge(parentNode.id, topicNode.id, 'branch debate');
         }
