@@ -108,6 +108,7 @@ class ReflectApp {
     }
 
     _onPointerDown(e) {
+        this.renderer.selectionBox = null;
         if (e.target === this.canvas) {
             try { this.canvas.setPointerCapture(e.pointerId); } catch (_) {}
         }
@@ -266,8 +267,10 @@ class ReflectApp {
             if (count > 0) this._status(`[${count} SELECTED]`);
         }
 
+        this.renderer.selectionBox = null;
         this.dragState = null;
         this.canvas.style.cursor = 'default';
+        this.renderer.markDirty();
     }
 
     _onDoubleClick(e) {
