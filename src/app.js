@@ -86,6 +86,7 @@ class ReflectApp {
         const c = this.canvas;
         c.addEventListener('mousedown', e => this._onMouseDown(e));
         c.addEventListener('mousemove', e => this._onMouseMove(e));
+        c.addEventListener('mouseup', e => this._onMouseUp(e));
         document.addEventListener('mouseup', e => this._onMouseUp(e));
         c.addEventListener('dblclick', e => this._onDoubleClick(e));
         c.addEventListener('wheel', e => this._onWheel(e), { passive: false });
@@ -176,6 +177,13 @@ class ReflectApp {
 
     _onMouseMove(e) {
         const pos = this._getCanvasPos(e);
+
+        // Failsafe: if button was released but mouseup was missed
+        if (this.dragState && e.buttons === 0) {
+            this._onMouseUp(e);
+            return;
+        }
+
         const dx = pos.x - this.lastMouse.x;
         const dy = pos.y - this.lastMouse.y;
 
