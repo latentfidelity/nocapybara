@@ -1574,7 +1574,7 @@ html, body {
 
 #status-bar {
     position: fixed;
-    bottom: 56px;
+    bottom: 120px;
     left: 50%;
     transform: translateX(-50%);
     z-index: 300;
