@@ -40,7 +40,7 @@ function createWindow() {
     // Build menu
     const template = [
         {
-            label: 'Reflect',
+            label: 'NoCapybara',
             submenu: [
                 { role: 'about' },
                 { type: 'separator' },

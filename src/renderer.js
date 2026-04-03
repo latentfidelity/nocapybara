@@ -1,5 +1,5 @@
 // ============================================
-// REFLECT — Point Cloud Renderer
+// NOCAPYBARA — Point Cloud Renderer
 // ============================================
 
 class GraphRenderer {
