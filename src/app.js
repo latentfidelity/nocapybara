@@ -2394,81 +2394,71 @@ Write concise, substantive paragraphs. Plain text only, no markdown headers. Be 
         this._debateRunning = false;
     }
 
-    _buildDebatePrompt(topic, history, side, round, totalRounds, mode = 'standard') {
+    _buildDebatePrompt(topic, history, side, round, totalRounds, mode = 'standard', numDebaters = 2) {
         const syntaxRef = `
-FORMATTING GUIDE — You are writing inside a knowledge modeling environment called NoCapybara. Use these features:
-
+FORMATTING GUIDE \u2014 You are writing inside the NoCapybara Epistemic Engine. Use these mechanisms:
 - **Markdown**: Use # headings, **bold**, *italic*, > blockquotes, - bullet lists, 1. numbered lists
-- **Wiki Links**: Reference concepts with [[Double Brackets]] — e.g. [[Consciousness]], [[Emergence]], [[Free Will]]
-  These create navigable links between knowledge nodes. Use them liberally for key concepts.
-- **Embeds**: Use ![[Node Name]] to embed another node's content inline
-- **Tags**: Use #hashtags for categorization — e.g. #philosophy #epistemology #open-question
-
-Write richly formatted, interconnected arguments. Every key concept should be a [[wiki link]].
+- **Wiki Links**: Reference core concepts via [[Double Brackets]] \u2014 e.g. [[Consciousness]], [[Emergence]]. Use them ruthlessly for all semantic nodes.
+- **Tags**: Use #hashtags for categorization \u2014 e.g. #axiom #fallacy #open-question #empirical-data
 `;
 
         const modeInstructions = {
-            standard: '',
-            steelman: `\n\n**STEEL MAN MODE**: Before presenting your counter-argument, you MUST first present the STRONGEST possible version of your opponent's position — even stronger than they stated it. Show you deeply understand their view before challenging it. Label this section "## Steel Man" before your response.\n`,
-            redteam: `\n\n**RED TEAM MODE**: Your sole purpose is adversarial analysis. Find the weakest logical link in the opponent's argument and attack it with maximum precision. Identify hidden assumptions, logical fallacies, unstated dependencies, and failure modes. Be ruthlessly analytical. Label weaknesses clearly.\n`,
-            socratic: side === 'B' ? `\n\n**SOCRATIC MODE**: You are the Questioner. Do NOT make claims or arguments. Instead, ask penetrating questions that force your opponent to examine their assumptions, clarify their reasoning, and confront edge cases. Each question should target a different aspect of their argument. Ask 5-7 focused questions.\n` : `\n\n**SOCRATIC MODE**: You are the Respondent. Answer each question thoroughly and honestly. If a question reveals a weakness in your position, acknowledge it openly. Use this as an opportunity to refine your understanding.\n`
+            standard: `\n\n**STANDARD MODE**: Debate rigorously. Do NOT be polite or sycophantic. Attack weak arguments without hesitation. If an opponent is right, concede the specific point but attack the surrounding framework if flawed.\n`,
+            steelman: `\n\n**STEEL MAN MODE**: Before presenting your counter-argument, you MUST construct the STRONGEST possible version of the other debaters' positions \u2014 stronger than they stated it. Repair their logical gaps for them. Only once you have a bulletproof Steel Man, dismantle it. Label this section "## Steel Man".\n`,
+            redteam: `\n\n**RED TEAM MODE**: You are an epistemic assassin. Your sole purpose is adversarial analysis. Find the weakest logical link, hidden assumption, or unstated dependency in the other arguments and attack it. Identify specific logical fallacies by name. Be ruthlessly analytical. Label weaknesses clearly.\n`,
+            socratic: `\n\n**SOCRATIC MODE**: If you are opening, establish strict definitional axioms. If you are responding, do NOT make declarative claims. Instead, ask penetrating, orthogonal questions that force other models to examine their implicit assumptions, confront edge cases, and resolve contradictions. Ask 3-5 precise questions.\n`
         };
 
-        let context = `You are Debater ${side} in an intellectual debate. The topic is:\n\n"${topic}"\n\n`;
+        let context = `You are MODEL ${side} in a maximally truth-seeking ${numDebaters}-way debate engine. The topic is:\n\n"${topic}"\n\n`;
         context += syntaxRef + '\n';
-        context += modeInstructions[mode] || '';
+        context += `**EPISTEMIC DIRECTIVE**: You are not here to compromise or seek artificial consensus. You are here to isolate objective truth. Demand falsifiability. Reject hallucinations. Point out formal logical fallacies. Base your arguments on empirical reality, formal logic, or explicit axioms.\n`;
+        context += modeInstructions[mode] || modeInstructions.standard;
 
         if (history.length > 0) {
-            context += `Previous arguments:\n\n`;
+            context += `\nPrevious arguments in the ledger:\n\n`;
             history.forEach(h => {
-                context += `--- ${h.role === side ? 'YOUR' : 'OPPONENT'} (Round ${h.round}) ---\n${h.content}\n\n`;
+                context += `--- MODEL ${h.role} (Round ${h.round}) ---\n${h.content}\n\n`;
             });
         }
 
         if (round === 1) {
-            context += `This is Round 1 of ${totalRounds}. Present your opening argument. Be substantive, cite reasoning, and stake out a clear position. Use [[wiki links]] for every key concept you introduce. Use markdown headings and structure. 3-5 paragraphs.`;
+            context += `This is Round 1 of ${totalRounds}. Present your opening thesis. Define your axioms strictly. Be substantive, cite grounding logic, and stake out a clear, distinct position from other potential models. Use [[wiki links]] for every key concept. 3-5 paragraphs.`;
         } else if (round === totalRounds) {
-            context += `This is the FINAL round (${round}/${totalRounds}). Identify areas of genuine agreement with your opponent while maintaining intellectual honesty about remaining disagreements. Focus on convergence toward truth. Use [[wiki links]] and markdown formatting. 3-5 paragraphs.`;
+            context += `This is the FINAL round (${round}/${totalRounds}). Drop everything but the hard truth. Discard your initial position if it was falsified. State the exact vector of convergence or the exact irreducible contradiction. Use [[wiki links]] heavily. 3-5 paragraphs.`;
         } else {
-            context += `This is Round ${round} of ${totalRounds}. Directly respond to your opponent's latest argument. Acknowledge valid points, challenge weak ones, refine your position. Use [[wiki links]] for concepts and markdown formatting. Be rigorous but fair. 3-5 paragraphs.`;
+            context += `This is Round ${round} of ${totalRounds}. Dissect the latest arguments from the ledger. Acknowledge valid axioms, shatter logical inconsistencies, refine your topology. Use [[wiki links]]. Be rigorous, objective, and unflinching. 3-5 paragraphs.`;
         }
 
         return context;
     }
 
-    _buildResolutionPrompt(topic, history) {
-        let prompt = `You are a neutral synthesizer writing inside a knowledge modeling environment called NoCapybara. Two AI models have debated the following topic:\n\n"${topic}"\n\nHere is the complete debate transcript:\n\n`;
+    _buildResolutionPrompt(topic, history, numDebaters = 2) {
+        let prompt = `You are NoCapybara's apex synthesizer, an AI designed for pure epistemic convergence. ${numDebaters} AI models have debated the following topic:\n\n"${topic}"\n\nHere is the complete debate ledger:\n\n`;
 
         history.forEach(h => {
-            prompt += `=== DEBATER ${h.role} — ROUND ${h.round} ===\n${h.content}\n\n`;
+            prompt += `=== MODEL ${h.role} \u2014 ROUND ${h.round} ===\n${h.content}\n\n`;
         });
 
-        prompt += `Now synthesize a FUNDAMENTAL TRUTH DOCUMENT — a resolution that captures:
+        prompt += `Now synthesize a FUNDAMENTAL TRUTH DOCUMENT. Strip away rhetoric, redundancy, and courtesy. Isolate the reality of the topic.
 
-# Core Truth
-What both sides ultimately agree on
+# Axiomatic Truths
+What is undeniably true based on the exchange? (What survived all Red Teaming?)
 
-# Key Insights
-The strongest arguments from each side
+# Falsified Claims
+What specific assertions were destroyed, and by what mechanism/fallacy?
 
-# Resolved Tensions
-Where seeming disagreements are actually compatible
+# The Synthesis
+The highest-order understanding of the topic that transcends the initial boundaries.
 
-# Remaining Questions
-Genuine open questions that merit further investigation
-
-# Conclusion
-A clear, actionable statement of the established truth
+# Irreducible Unknowns
+What remains unprovable or requires external empirical validation?
 
 FORMATTING REQUIREMENTS:
 - Use # markdown headings for each section
 - Use **bold** for emphasis and *italic* for nuance
-- Use [[Double Bracket Links]] for every key concept — e.g. [[Consciousness]], [[Emergence]]
-- Use > blockquotes for direct references to debater arguments
-- Use #tags for categorization — e.g. #resolved #open-question #fundamental
-- Use ![[Node Name]] to embed if referencing content from a specific debate round
-
-This document should stand alone as a definitive, richly linked analysis. Do NOT hedge unnecessarily — state what is true.`;
+- Use [[Double Bracket Links]] for EVERY key concept \u2014 e.g. [[Consciousness]], [[Emergence]]
+- Use #tags for structural labeling \u2014 e.g. #axiom #falsified #synthesis
+- Do NOT hedge or use weak language ("It is important to consider...", "Both sides made valid points..."). State reality as it is.`;
 
         return prompt;
     }
