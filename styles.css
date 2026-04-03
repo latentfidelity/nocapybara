@@ -5,18 +5,18 @@
    ============================================ */
 
 :root {
-    /* Nothing Tokens — Dark Mode */
+    /* X (Twitter) Lights Out Mode */
     --black: #000000;
-    --surface: #111111;
-    --surface-raised: #1A1A1A;
-    --border: #222222;
-    --border-visible: #333333;
-    --text-disabled: #666666;
-    --text-secondary: #999999;
-    --text-primary: #E8E8E8;
-    --text-display: #FFFFFF;
-    --accent: #D71921;
-    --accent-subtle: rgba(215,25,33,0.15);
+    --surface: #000000;
+    --surface-raised: #16181C;
+    --border: #2F3336;
+    --border-visible: #3E4144;
+    --text-disabled: #536471;
+    --text-secondary: #71767B;
+    --text-primary: #E7E9EA;
+    --text-display: #E7E9EA;
+    --accent: #1D9BF0;
+    --accent-subtle: rgba(29,155,240,0.15);
 
     /* Layout */
     --topbar-height: 48px;

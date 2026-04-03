@@ -399,16 +399,6 @@ class GraphRenderer {
         ctx.stroke();
         ctx.restore();
 
-        // Content indicator dot
-        if (hasContent) {
-            ctx.save();
-            ctx.fillStyle = isSelected ? '#FFFFFF' : 'rgba(255,255,255,0.5)';
-            ctx.beginPath();
-            ctx.arc(node.x - pillW/2 + 10, node.y, 2.5, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.restore();
-        }
-
         // Label inside pill
         ctx.save();
         ctx.font = isSelected ? "600 10px 'Space Grotesk', sans-serif" : "500 10px 'Space Grotesk', sans-serif";
@@ -430,10 +420,11 @@ class GraphRenderer {
         // Type label below pill on hover/select
         if (isSelected || isHovered) {
             ctx.save();
-            ctx.font = "400 8px 'Space Mono', monospace";
+            ctx.font = "400 8.5px 'Space Mono', monospace";
             ctx.textAlign = 'center';
-            ctx.fillStyle = '#666666';
-            ctx.fillText(typeDef.label.toUpperCase(), node.x, node.y + pillH/2 + 10);
+            ctx.fillStyle = typeDef.color;
+            ctx.globalAlpha = 0.8;
+            ctx.fillText(typeDef.label.toUpperCase(), node.x, node.y + pillH/2 + 16);
             ctx.restore();
         }
     }

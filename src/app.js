@@ -1534,30 +1534,32 @@ Thought: "${text.replace(/"/g, '\\"')}"`;
         let headerParsed = false;
         let contentStartIdx = -1;
 
-        // Open write modal
-        const writeOverlay = document.createElement('div');
-        writeOverlay.className = 'write-modal-overlay';
-        writeOverlay.id = 'write-modal-overlay';
-        writeOverlay.innerHTML = `
-            <div class="write-modal">
-                <div class="write-modal-header">
-                    <h3>✦ EXPANDING THOUGHT</h3>
-                    <button class="write-modal-close" id="write-modal-close">✕</button>
-                </div>
-                <div class="write-modal-body" id="write-modal-body"></div>
-                <div class="write-modal-status" id="write-modal-status">
-                    <span class="thinking-dots">Generating</span>
-                </div>
-            </div>
+        // Route to the debate bottom drawer instead of center modal
+        const overlay = document.getElementById('debate-overlay');
+        const transcript = document.getElementById('debate-transcript');
+        const statusEl = document.getElementById('debate-status');
+        const titleEl = document.getElementById('debate-modal-title');
+        const roundIndicator = document.getElementById('debate-round-indicator');
+        
+        overlay.classList.remove('hidden');
+        transcript.innerHTML = '';
+        titleEl.textContent = 'EXPANDING THOUGHT';
+        roundIndicator.textContent = 'AWAITING RESPONSE';
+        statusEl.textContent = 'STREAMING...';
+
+        document.getElementById('debate-modal-close').onclick = () => {
+            overlay.classList.add('hidden');
+        };
+
+        const msg = document.createElement('div');
+        msg.className = 'debate-msg side-a'; // generic color side
+        msg.innerHTML = `
+            <div class="debate-msg-header">\u2726 AI EXPANSION \u00B7 ${this.selectedModel}</div>
+            <div class="debate-msg-body" id="write-modal-body"></div>
         `;
-        document.body.appendChild(writeOverlay);
+        transcript.appendChild(msg);
 
         const writeBody = document.getElementById('write-modal-body');
-        const writeStatus = document.getElementById('write-modal-status');
-        document.getElementById('write-modal-close').addEventListener('click', () => {
-            writeOverlay.remove();
-        });
-
         window.electronAPI.removeStreamListeners();
 
         window.electronAPI.onStreamChunk((chunk) => {
@@ -1652,8 +1654,7 @@ Thought: "${text.replace(/"/g, '\\"')}"`;
             this._renderPagesTree();
             this._status('[THOUGHT EXPANDED]', 'success');
             window.electronAPI.removeStreamListeners();
-            // Update write modal status
-            if (writeStatus) writeStatus.textContent = '✓ COMPLETE — Click ✕ to close';
+            statusEl.textContent = 'COMPLETE \u2014 Click \u2715 to close';
         });
 
         window.electronAPI.onStreamError((err) => {
@@ -1661,7 +1662,7 @@ Thought: "${text.replace(/"/g, '\\"')}"`;
             this.renderer.markDirty();
             this._status('[AI ERROR: ' + err + ']', 'error');
             window.electronAPI.removeStreamListeners();
-            if (writeStatus) writeStatus.textContent = '✗ ERROR: ' + err;
+            statusEl.textContent = 'ERROR \u2014 ' + err;
         });
 
         window.electronAPI.geminiStream(prompt, true, this.selectedModel);
