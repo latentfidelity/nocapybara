@@ -1383,7 +1383,7 @@ class ReflectApp {
         if (this.debaters.length > 2) {
             const rmBtn = document.createElement('button');
             rmBtn.className = 'thought-tool';
-            rmBtn.textContent = '\u2212';
+            rmBtn.textContent = '[-] REMOVE';
             rmBtn.title = 'Remove last debater';
             rmBtn.addEventListener('click', () => {
                 this.debaters.pop();
