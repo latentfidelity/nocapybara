@@ -49,8 +49,8 @@ class GraphRenderer {
             this._animateCamera();
             if (this.physicsEnabled) this._simulateForces();
             if (this._dirty) {
-                this._render();
                 this._dirty = false;
+                this._render();
             }
         };
         loop();
