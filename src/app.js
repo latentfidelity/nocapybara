@@ -1729,6 +1729,22 @@ Write concise, substantive paragraphs. Plain text only, no markdown headers. Be 
         this._debateRunning = true;
         const rounds = parseInt(document.getElementById('debate-rounds').value) || 5;
 
+        // Open the debate modal
+        const overlay = document.getElementById('debate-overlay');
+        const transcript = document.getElementById('debate-transcript');
+        const statusEl = document.getElementById('debate-status');
+        const roundIndicator = document.getElementById('debate-round-indicator');
+        overlay.classList.remove('hidden');
+        transcript.innerHTML = '';
+        document.getElementById('debate-modal-title').textContent = `DEBATE: ${topic.slice(0, 50)}`;
+        roundIndicator.textContent = `${rounds} ROUNDS`;
+        statusEl.textContent = 'Initializing...';
+
+        // Close button
+        document.getElementById('debate-modal-close').onclick = () => {
+            overlay.classList.add('hidden');
+        };
+
         // Create the topic node at center
         const wp = this.renderer.screenToWorld(this.renderer.viewW / 2, this.renderer.viewH / 2);
         const topicNode = this.model.addNode('topic', wp.x, wp.y - 120, topic);
@@ -1744,58 +1760,71 @@ Write concise, substantive paragraphs. Plain text only, no markdown headers. Be 
 
         this._clearSelection();
         this._selectNode(topicNode);
-        this._status(`[DEBATE: ${rounds} ROUNDS]`);
 
         const history = [];
         let lastNodeA = topicNode;
         let lastNodeB = topicNode;
 
+        const addToTranscript = (side, round, model, content) => {
+            const msg = document.createElement('div');
+            msg.className = `debate-msg side-${side.toLowerCase()}`;
+            msg.innerHTML = `
+                <div class="debate-msg-header">${side === 'RESOLUTION' ? '◆ RESOLUTION' : `${side === 'A' ? '🔴' : '🔵'} MODEL ${side} — ROUND ${round}`} · ${model}</div>
+                <div class="debate-msg-body">${content.replace(/\n/g, '<br>')}</div>
+            `;
+            transcript.appendChild(msg);
+            transcript.scrollTop = transcript.scrollHeight;
+        };
+
         try {
             for (let round = 1; round <= rounds; round++) {
-                this._status(`[ROUND ${round}/${rounds} — MODEL A]`);
+                // Model A
+                roundIndicator.textContent = `ROUND ${round}/${rounds}`;
+                statusEl.textContent = `Model A thinking...`;
 
-                // Model A argues
                 const promptA = this._buildDebatePrompt(topic, history, 'A', round, rounds);
-                const responseA = await window.electronAPI.geminiRequest(promptA, this.debateModelA);
+                const responseA = await window.electronAPI.geminiRequest(promptA, false, this.debateModelA);
+
+                addToTranscript('A', round, this.debateModelA, responseA);
 
                 const nodeA = this.model.addNode('idea', wp.x - 160, wp.y + round * 120, `R${round} — A`);
                 nodeA.label = `Round ${round}: Model A`;
                 nodeA.description = `${this.debateModelA} — Round ${round}`;
                 nodeA.content = responseA;
                 nodeA.properties = { side: 'A', round: round.toString(), model: this.debateModelA };
-
-                // Edge from previous to this
                 this.model.addEdge(lastNodeA.id, nodeA.id, round === 1 ? 'opens' : 'responds');
                 lastNodeA = nodeA;
-
                 history.push({ role: 'A', round, content: responseA });
                 this.renderer.markDirty();
 
-                // Model B argues
-                this._status(`[ROUND ${round}/${rounds} — MODEL B]`);
+                // Model B
+                statusEl.textContent = `Model B thinking...`;
+
                 const promptB = this._buildDebatePrompt(topic, history, 'B', round, rounds);
-                const responseB = await window.electronAPI.geminiRequest(promptB, this.debateModelB);
+                const responseB = await window.electronAPI.geminiRequest(promptB, false, this.debateModelB);
+
+                addToTranscript('B', round, this.debateModelB, responseB);
 
                 const nodeB = this.model.addNode('idea', wp.x + 160, wp.y + round * 120, `R${round} — B`);
                 nodeB.label = `Round ${round}: Model B`;
                 nodeB.description = `${this.debateModelB} — Round ${round}`;
                 nodeB.content = responseB;
                 nodeB.properties = { side: 'B', round: round.toString(), model: this.debateModelB };
-
-                // Edge from previous B to this B, and cross-edge from A to B
                 this.model.addEdge(lastNodeB.id, nodeB.id, round === 1 ? 'opens' : 'responds');
-                this.model.addEdge(nodeA.id, nodeB.id, `counters`);
+                this.model.addEdge(nodeA.id, nodeB.id, 'counters');
                 lastNodeB = nodeB;
-
                 history.push({ role: 'B', round, content: responseB });
                 this.renderer.markDirty();
             }
 
-            // RESOLUTION: Both models have argued. Now synthesize.
-            this._status('[SYNTHESIZING RESOLUTION...]');
+            // RESOLUTION
+            statusEl.textContent = 'Synthesizing resolution...';
+            roundIndicator.textContent = 'RESOLUTION';
 
             const resolutionPrompt = this._buildResolutionPrompt(topic, history);
-            const resolution = await window.electronAPI.geminiRequest(resolutionPrompt, this.debateModelA);
+            const resolution = await window.electronAPI.geminiRequest(resolutionPrompt, false, this.debateModelA);
+
+            addToTranscript('RESOLUTION', null, 'synthesizer', resolution);
 
             const resNode = this.model.addNode('rule', wp.x, wp.y + (rounds + 1) * 120, 'Resolution');
             resNode.label = `Resolution: ${topic.slice(0, 30)}`;
@@ -1809,7 +1838,6 @@ Write concise, substantive paragraphs. Plain text only, no markdown headers. Be 
                 topic: topic
             };
 
-            // Connect last A and B to resolution
             this.model.addEdge(lastNodeA.id, resNode.id, 'synthesizes');
             this.model.addEdge(lastNodeB.id, resNode.id, 'synthesizes');
             this.model.addEdge(topicNode.id, resNode.id, 'resolves');
@@ -1818,14 +1846,12 @@ Write concise, substantive paragraphs. Plain text only, no markdown headers. Be 
             topicNode.content = `# Debate: ${topic}\n\nModels: ${this.debateModelA} vs ${this.debateModelB}\nRounds: ${rounds}\n\nSee [[Resolution: ${topic.slice(0, 30)}]] for the final truth document.`;
             this.renderer.markDirty();
 
-            this._clearSelection();
-            this._selectNode(resNode);
-            this._openInspector(resNode);
-            this.renderer.panTo(resNode.x, resNode.y);
+            statusEl.textContent = '✓ DEBATE RESOLVED — Click any node to inspect';
             this._status('[DEBATE RESOLVED]', 'success');
 
         } catch (err) {
             topicNode._loading = false;
+            statusEl.textContent = `✗ ERROR: ${err.message}`;
             this._status('[DEBATE ERROR: ' + err.message + ']');
             console.error('Debate error:', err);
         }
@@ -1834,7 +1860,6 @@ Write concise, substantive paragraphs. Plain text only, no markdown headers. Be 
     }
 
     _buildDebatePrompt(topic, history, side, round, totalRounds) {
-        const opponent = side === 'A' ? 'B' : 'A';
         let context = `You are Debater ${side} in an intellectual debate. The topic is:\n\n"${topic}"\n\n`;
 
         if (history.length > 0) {
