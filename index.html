@@ -187,6 +187,12 @@
                                 <option value="5" selected>5 ROUNDS</option>
                                 <option value="7">7 ROUNDS</option>
                             </select>
+                            <select id="debate-mode" class="debate-rounds" title="Debate Mode">
+                                <option value="standard">⚔ STANDARD</option>
+                                <option value="steelman">🛡 STEEL MAN</option>
+                                <option value="redteam">🔴 RED TEAM</option>
+                                <option value="socratic">🏛 SOCRATIC</option>
+                            </select>
                         </div>
                     </div>
                     <!-- Model popup menu (shared) -->
@@ -470,7 +476,9 @@
         </div>
 
         <!-- Inline Status -->
-        <div id="status-bar"></div>
+        <div id="status-bar">
+            <div id="graph-health" class="graph-health"></div>
+        </div>
 
         <!-- Modal -->
         <div id="modal-overlay" class="modal-overlay hidden">

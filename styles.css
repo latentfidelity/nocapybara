@@ -1539,6 +1539,25 @@ html, body {
     align-items: center;
 }
 
+.graph-health {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    color: var(--text-disabled);
+    background: rgba(17,17,17,0.9);
+    border: 1px solid var(--border);
+    padding: 3px 10px;
+    border-radius: 3px;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    min-height: 16px;
+}
+
+.health-stats {
+    color: var(--text-disabled);
+    font-size: 9px;
+}
+
 .status-msg {
     font-family: 'Space Mono', monospace;
     font-size: 11px;

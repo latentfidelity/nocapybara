@@ -117,12 +117,14 @@ class ReflectApp {
             this._updateEmptyState();
             this._renderPagesTree();
             this._renderStarredList();
+            this._updateHealthIndicator();
         });
 
         this._updateStats();
         this._updateEmptyState();
         this._renderPagesTree();
         this._renderStarredList();
+        this._updateHealthIndicator();
     }
 
     // ======================== CANVAS EVENTS ========================
@@ -1966,6 +1968,7 @@ Write concise, substantive paragraphs. Plain text only, no markdown headers. Be 
 
         this._debateRunning = true;
         const rounds = parseInt(document.getElementById('debate-rounds').value) || 5;
+        const mode = document.getElementById('debate-mode')?.value || 'standard';
 
         // Open the debate modal
         const overlay = document.getElementById('debate-overlay');
@@ -1974,7 +1977,8 @@ Write concise, substantive paragraphs. Plain text only, no markdown headers. Be 
         const roundIndicator = document.getElementById('debate-round-indicator');
         overlay.classList.remove('hidden');
         transcript.innerHTML = '';
-        document.getElementById('debate-modal-title').textContent = `DEBATE: ${topic.slice(0, 50)}`;
+        const modeLabels = { standard: '⚔ STANDARD', steelman: '🛡 STEEL MAN', redteam: '🔴 RED TEAM', socratic: '🏛 SOCRATIC' };
+        document.getElementById('debate-modal-title').textContent = `${modeLabels[mode] || 'DEBATE'}: ${topic.slice(0, 50)}`;
         roundIndicator.textContent = `${rounds} ROUNDS`;
         statusEl.textContent = 'Initializing...';
 
@@ -2020,7 +2024,7 @@ Write concise, substantive paragraphs. Plain text only, no markdown headers. Be 
                 roundIndicator.textContent = `ROUND ${round}/${rounds}`;
                 statusEl.innerHTML = `<span class="thinking-dots">Model A thinking</span>`;
 
-                const promptA = this._buildDebatePrompt(topic, history, 'A', round, rounds);
+                const promptA = this._buildDebatePrompt(topic, history, 'A', round, rounds, mode);
                 const resultA = await window.electronAPI.geminiRequest(promptA, false, this.debateModelA);
                 const responseA = resultA?.text || resultA?.error || String(resultA || '');
 
@@ -2041,7 +2045,7 @@ Write concise, substantive paragraphs. Plain text only, no markdown headers. Be 
                 // Model B
                 statusEl.innerHTML = `<span class="thinking-dots">Model B thinking</span>`;
 
-                const promptB = this._buildDebatePrompt(topic, history, 'B', round, rounds);
+                const promptB = this._buildDebatePrompt(topic, history, 'B', round, rounds, mode);
                 const resultB = await window.electronAPI.geminiRequest(promptB, false, this.debateModelB);
                 const responseB = resultB?.text || resultB?.error || String(resultB || '');
 
@@ -2107,7 +2111,7 @@ Write concise, substantive paragraphs. Plain text only, no markdown headers. Be 
         this._debateRunning = false;
     }
 
-    _buildDebatePrompt(topic, history, side, round, totalRounds) {
+    _buildDebatePrompt(topic, history, side, round, totalRounds, mode = 'standard') {
         const syntaxRef = `
 FORMATTING GUIDE — You are writing inside a knowledge modeling environment called NoCapybara. Use these features:
 
@@ -2120,8 +2124,16 @@ FORMATTING GUIDE — You are writing inside a knowledge modeling environment cal
 Write richly formatted, interconnected arguments. Every key concept should be a [[wiki link]].
 `;
 
+        const modeInstructions = {
+            standard: '',
+            steelman: `\n\n**STEEL MAN MODE**: Before presenting your counter-argument, you MUST first present the STRONGEST possible version of your opponent's position — even stronger than they stated it. Show you deeply understand their view before challenging it. Label this section "## Steel Man" before your response.\n`,
+            redteam: `\n\n**RED TEAM MODE**: Your sole purpose is adversarial analysis. Find the weakest logical link in the opponent's argument and attack it with maximum precision. Identify hidden assumptions, logical fallacies, unstated dependencies, and failure modes. Be ruthlessly analytical. Label weaknesses clearly.\n`,
+            socratic: side === 'B' ? `\n\n**SOCRATIC MODE**: You are the Questioner. Do NOT make claims or arguments. Instead, ask penetrating questions that force your opponent to examine their assumptions, clarify their reasoning, and confront edge cases. Each question should target a different aspect of their argument. Ask 5-7 focused questions.\n` : `\n\n**SOCRATIC MODE**: You are the Respondent. Answer each question thoroughly and honestly. If a question reveals a weakness in your position, acknowledge it openly. Use this as an opportunity to refine your understanding.\n`
+        };
+
         let context = `You are Debater ${side} in an intellectual debate. The topic is:\n\n"${topic}"\n\n`;
         context += syntaxRef + '\n';
+        context += modeInstructions[mode] || '';
 
         if (history.length > 0) {
             context += `Previous arguments:\n\n`;
@@ -2667,6 +2679,92 @@ This document should stand alone as a definitive, richly linked analysis. Do NOT
         if (!anyNodes) {
             container.innerHTML = '<div class="pages-empty">[ NO PAGES ]<br>Double-click the canvas or use + NEW PAGE</div>';
         }
+    }
+
+    // ======================== GRAPH HEALTH ========================
+
+    _computeGraphHealth() {
+        const nodes = [...this.model.nodes.values()];
+        const edges = [...this.model.edges.values()];
+        if (nodes.length === 0) return null;
+
+        let score = 100;
+        const issues = [];
+
+        // Orphan nodes (no edges)
+        const connectedIds = new Set();
+        edges.forEach(e => { connectedIds.add(e.from); connectedIds.add(e.to); });
+        const orphans = nodes.filter(n => !connectedIds.has(n.id));
+        const orphanRatio = orphans.length / nodes.length;
+        if (orphanRatio > 0.3) {
+            score -= Math.round(orphanRatio * 20);
+            issues.push(`${orphans.length} orphan nodes`);
+        }
+
+        // Unresolved conjectures
+        const conjectures = nodes.filter(n => n.epistemicStatus === 'conjecture' && n.content.length > 0);
+        const conjRatio = conjectures.length / Math.max(1, nodes.filter(n => n.content.length > 0).length);
+        if (conjRatio > 0.5) {
+            score -= Math.round(conjRatio * 15);
+            issues.push(`${conjectures.length} unresolved conjectures`);
+        }
+
+        // Falsified but not flagged
+        const falsified = nodes.filter(n => n.epistemicStatus === 'falsified');
+        // Check if falsified nodes' dependents are updated
+        falsified.forEach(fn => {
+            edges.forEach(e => {
+                if (e.from === fn.id && e.label === 'depends-on') {
+                    const dep = this.model.nodes.get(e.to);
+                    if (dep && dep.epistemicStatus !== 'contested' && dep.epistemicStatus !== 'falsified') {
+                        score -= 5;
+                        issues.push(`${dep.label} depends on falsified claim`);
+                    }
+                }
+            });
+        });
+
+        // Empty content ratio
+        const emptyContent = nodes.filter(n => !n.content || n.content.trim().length === 0);
+        const emptyRatio = emptyContent.length / nodes.length;
+        if (emptyRatio > 0.5) {
+            score -= Math.round(emptyRatio * 10);
+        }
+
+        // Falsification coverage
+        const substantive = nodes.filter(n => n.content.length > 50);
+        const withFalsification = substantive.filter(n => n.falsificationCondition && n.falsificationCondition.length > 0);
+        const falsifyCoverage = substantive.length > 0 ? withFalsification.length / substantive.length : 1;
+        if (falsifyCoverage < 0.2 && substantive.length > 3) {
+            score -= 10;
+            issues.push('Low falsification coverage');
+        }
+
+        score = Math.max(0, Math.min(100, score));
+
+        return { score, issues, stats: {
+            total: nodes.length,
+            edges: edges.length,
+            orphans: orphans.length,
+            conjectures: conjectures.length,
+            established: nodes.filter(n => n.epistemicStatus === 'established').length,
+            falsified: falsified.length,
+        }};
+    }
+
+    _updateHealthIndicator() {
+        const indicator = document.getElementById('graph-health');
+        if (!indicator) return;
+
+        const health = this._computeGraphHealth();
+        if (!health) {
+            indicator.textContent = '';
+            return;
+        }
+
+        const color = health.score >= 80 ? '#33bb55' : health.score >= 50 ? '#cc8833' : '#cc3333';
+        indicator.innerHTML = `<span style="color:${color}">◉ ${health.score}</span> <span class="health-stats">${health.stats.total}N · ${health.stats.edges}E · ${health.stats.established}✓ · ${health.stats.falsified}✗</span>`;
+        indicator.title = health.issues.length > 0 ? 'Issues: ' + health.issues.join(', ') : 'Graph is healthy';
     }
 
     _status(msg, type = '') {
