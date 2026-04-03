@@ -1311,7 +1311,7 @@ class ReflectApp {
                 if (this._ctxTarget) {
                     this._clearSelection();
                     this._selectNode(this._ctxTarget);
-                    this._showBranchInput();
+                    this._showBranchInput(this._ctxTarget);
                 }
                 break;
             case 'template-concept':
