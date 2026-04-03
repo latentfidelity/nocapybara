@@ -666,6 +666,10 @@ html, body {
     box-shadow: 0 4px 24px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.05);
 }
 
+.thought-bar-inner::-webkit-resizer {
+    display: none !important;
+}
+
 #thought-input {
     flex: 1;
     background: transparent;
@@ -678,7 +682,14 @@ html, body {
     resize: none;
     min-height: 20px;
     max-height: 120px;
-    overflow-y: auto;
+    overflow: hidden;
+}
+
+#thought-input::-webkit-resizer,
+#thought-input::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
 }
 
 #thought-input::placeholder {
@@ -1059,6 +1070,8 @@ html, body {
     border: 1px solid var(--border-visible);
     padding: 4px;
     z-index: 210;
+    max-height: 400px;
+    overflow-y: auto;
 }
 
 .thought-popup.hidden {
@@ -1088,6 +1101,16 @@ html, body {
     height: 1px;
     background: var(--border);
     margin: 4px 0;
+}
+
+.thought-popup-header {
+    padding: 6px 10px 2px;
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.08em;
+    color: var(--text-disabled);
+    text-transform: uppercase;
+    pointer-events: none;
 }
 
 .thought-submit {
@@ -1564,6 +1587,10 @@ html, body {
     min-height: 16px;
 }
 
+.graph-health:empty {
+    display: none;
+}
+
 .health-stats {
     color: var(--text-disabled);
     font-size: 9px;
@@ -1649,8 +1676,8 @@ html, body {
 }
 
 .help-btn {
-    width: 28px;
-    height: 28px;
+    width: 32px;
+    height: 32px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1660,13 +1687,22 @@ html, body {
     color: var(--text-disabled);
     cursor: pointer;
     font-family: 'Space Mono', monospace;
-    font-size: 12px;
+    font-size: 18px;
+    line-height: 1;
     transition: all var(--speed-fast) var(--ease);
 }
 
 .help-btn:hover {
     border-color: var(--text-secondary);
     color: var(--text-primary);
+}
+
+.settings-btn {
+    width: 32px;
+    height: 32px;
+    font-size: 18px;
+    line-height: 1;
+    padding-bottom: 1px;
 }
 
 /* ===================== QUICK SWITCHER ===================== */

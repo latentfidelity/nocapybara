@@ -823,7 +823,7 @@ class ReflectApp {
                 document.getElementById('note-controls').classList.toggle('hidden', btn.dataset.mode !== 'note');
                 document.getElementById('debate-controls').classList.toggle('hidden', btn.dataset.mode !== 'debate');
                 document.getElementById('thought-input').placeholder =
-                    btn.dataset.mode === 'debate' ? 'Enter a debate topic...' : 'Stream of consciousness...';
+                    btn.dataset.mode === 'debate' ? 'Enter a debate topic...' : 'Ask a question...';
             });
         });
 
@@ -1989,7 +1989,7 @@ Write concise, substantive paragraphs. Plain text only, no markdown headers. Be 
 
         // Create the topic node at center
         const wp = this.renderer.screenToWorld(this.renderer.viewW / 2, this.renderer.viewH / 2);
-        const topicNode = this.model.addNode('question', wp.x, wp.y - 120, topic);
+        const topicNode = this.model.addNode('claim', wp.x, wp.y - 120, topic);
         topicNode.description = 'Debate topic';
         topicNode.properties = {
             mode: 'debate',
@@ -2539,30 +2539,121 @@ This document should stand alone as a definitive, richly linked analysis. Do NOT
         if (!container) return;
         container.innerHTML = '';
 
+        const allNodes = [...this.model.nodes.values()];
+        if (allNodes.length === 0) {
+            container.innerHTML = '<div class="pages-empty">[ NO PAGES ]<br>Double-click the canvas or use + NEW PAGE</div>';
+            return;
+        }
+
+        // Identify debate topics: nodes with properties.mode === 'debate'
+        const debateTopics = allNodes.filter(n => n.properties && n.properties.mode === 'debate');
+        const debateChildIds = new Set();
+
+        const debateGroups = debateTopics.map(topic => {
+            const children = [];
+            const collectChildren = (parentId) => {
+                this.model.edges.forEach(e => {
+                    if (e.from === parentId) {
+                        const child = this.model.nodes.get(e.to);
+                        if (child && !debateChildIds.has(child.id)) {
+                            children.push(child);
+                            debateChildIds.add(child.id);
+                            collectChildren(child.id);
+                        }
+                    }
+                });
+            };
+            debateChildIds.add(topic.id);
+            collectChildren(topic.id);
+            return { topic, children };
+        });
+
+        const standaloneNodes = allNodes.filter(n => !debateChildIds.has(n.id));
+
+        // === Render Debates ===
+        if (debateGroups.length > 0) {
+            const section = document.createElement('div');
+            section.className = 'pages-type-group';
+
+            const hdr = document.createElement('div');
+            hdr.className = 'pages-type-header';
+            hdr.innerHTML = `<span class="pages-type-chevron">\u25BC</span><span class="pages-type-dot" style="background:#D71921"></span><span class="pages-type-label">DEBATES</span><span class="pages-type-count">${debateGroups.length}</span>`;
+            hdr.addEventListener('click', () => hdr.classList.toggle('collapsed'));
+
+            const list = document.createElement('div');
+            list.className = 'pages-type-items';
+
+            debateGroups.forEach(({ topic, children }) => {
+                const ti = document.createElement('div');
+                ti.className = 'page-item' + (this.selectedNodes.has(topic.id) ? ' active' : '');
+                ti.innerHTML = `<span class="page-item-toggle">\u25B6</span><span class="page-item-label">${this._esc(topic.label)}</span>`;
+                ti.addEventListener('click', (e) => {
+                    if (e.target.classList.contains('page-item-toggle')) return;
+                    this._clearSelection(); this._selectNode(topic);
+                    this.renderer.panTo(topic.x, topic.y); this._openInspector(topic);
+                });
+                list.appendChild(ti);
+
+                const sub = document.createElement('div');
+                sub.className = 'page-sub-items collapsed';
+
+                children.sort((a, b) => {
+                    const rA = parseInt(a.properties?.round || '99');
+                    const rB = parseInt(b.properties?.round || '99');
+                    if (rA !== rB) return rA - rB;
+                    if (a.properties?.type === 'resolution') return 1;
+                    if (b.properties?.type === 'resolution') return -1;
+                    return (a.properties?.side || '').localeCompare(b.properties?.side || '');
+                }).forEach(child => {
+                    const isRes = child.properties?.type === 'resolution';
+                    const side = child.properties?.side;
+                    const round = child.properties?.round;
+                    const label = isRes ? 'Resolution' : `R${round} \u00B7 ${side}`;
+                    const ind = isRes ? '\u25C6' : (side === 'A' ? '<span style="color:#E0866E">A</span>' : '<span style="color:#7EAAE2">B</span>');
+
+                    const si = document.createElement('div');
+                    si.className = 'page-item page-sub-item' + (this.selectedNodes.has(child.id) ? ' active' : '');
+                    si.innerHTML = `<span class="page-sub-indicator">${ind}</span><span class="page-item-label">${label}</span>`;
+                    si.addEventListener('click', () => {
+                        this._clearSelection(); this._selectNode(child);
+                        this.renderer.panTo(child.x, child.y); this._openInspector(child);
+                    });
+                    sub.appendChild(si);
+                });
+
+                list.appendChild(sub);
+
+                const tog = ti.querySelector('.page-item-toggle');
+                if (tog) {
+                    tog.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        sub.classList.toggle('collapsed');
+                        tog.textContent = sub.classList.contains('collapsed') ? '\u25B6' : '\u25BC';
+                    });
+                }
+            });
+
+            section.appendChild(hdr);
+            section.appendChild(list);
+            container.appendChild(section);
+        }
+
+        // === Render Standalone by Type ===
         const groups = {};
         for (const [type, typeDef] of Object.entries(NexusModel.NODE_TYPES)) {
             groups[type] = { typeDef, nodes: [] };
         }
-        this.model.nodes.forEach(n => {
-            if (groups[n.type]) groups[n.type].nodes.push(n);
-        });
+        standaloneNodes.forEach(n => { if (groups[n.type]) groups[n.type].nodes.push(n); });
 
-        let anyNodes = false;
         for (const [type, group] of Object.entries(groups)) {
             if (group.nodes.length === 0) continue;
-            anyNodes = true;
 
             const groupEl = document.createElement('div');
             groupEl.className = 'pages-type-group';
 
             const header = document.createElement('div');
             header.className = 'pages-type-header';
-            header.innerHTML = `
-                <span class="pages-type-chevron">▼</span>
-                <span class="pages-type-dot" style="background:${group.typeDef.color}"></span>
-                <span class="pages-type-label">${group.typeDef.label.toUpperCase()}</span>
-                <span class="pages-type-count">${group.nodes.length}</span>
-            `;
+            header.innerHTML = `<span class="pages-type-chevron">\u25BC</span><span class="pages-type-dot" style="background:${group.typeDef.color}"></span><span class="pages-type-label">${group.typeDef.label.toUpperCase()}</span><span class="pages-type-count">${group.nodes.length}</span>`;
             header.addEventListener('click', () => header.classList.toggle('collapsed'));
 
             const items = document.createElement('div');
@@ -2571,113 +2662,18 @@ This document should stand alone as a definitive, richly linked analysis. Do NOT
             group.nodes.sort((a, b) => a.label.localeCompare(b.label)).forEach(n => {
                 const item = document.createElement('div');
                 item.className = 'page-item' + (this.selectedNodes.has(n.id) ? ' active' : '');
-                
-                // Check if this node is a debate topic (has debate child nodes)
-                const childEdges = [];
-                this.model.edges.forEach(e => {
-                    if (e.from === n.id) childEdges.push(e);
-                });
-                const debateChildren = childEdges
-                    .map(e => this.model.nodes.get(e.to))
-                    .filter(child => child && child.properties && (child.properties.side || child.properties.type === 'resolution'));
-                
-                const hasDebateChildren = debateChildren.length > 0;
-                
-                item.innerHTML = `${hasDebateChildren ? '<span class="page-item-toggle">▶</span>' : ''}<span class="page-item-label">${this._esc(n.label)}</span>`;
+                item.innerHTML = `<span class="page-item-label">${this._esc(n.label)}</span>`;
                 item.dataset.id = n.id;
-                item.draggable = true;
-
-                item.addEventListener('click', (e) => {
-                    if (e.target.classList.contains('page-item-toggle')) return;
-                    this._clearSelection();
-                    this._selectNode(n);
-                    this.renderer.panTo(n.x, n.y);
-                    this._openInspector(n);
+                item.addEventListener('click', () => {
+                    this._clearSelection(); this._selectNode(n);
+                    this.renderer.panTo(n.x, n.y); this._openInspector(n);
                 });
-
-                // Drag reorder
-                item.addEventListener('dragstart', (e) => {
-                    e.dataTransfer.setData('text/plain', n.id);
-                    item.classList.add('dragging');
-                });
-                item.addEventListener('dragend', () => {
-                    item.classList.remove('dragging');
-                    container.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
-                });
-                item.addEventListener('dragover', (e) => {
-                    e.preventDefault();
-                    item.classList.add('drag-over');
-                });
-                item.addEventListener('dragleave', () => {
-                    item.classList.remove('drag-over');
-                });
-                item.addEventListener('drop', (e) => {
-                    e.preventDefault();
-                    item.classList.remove('drag-over');
-                    const fromId = e.dataTransfer.getData('text/plain');
-                    const fromNode = this.model.nodes.get(fromId);
-                    if (fromNode && fromNode.id !== n.id) {
-                        // Swap positions on canvas
-                        const tx = fromNode.x, ty = fromNode.y;
-                        fromNode.x = n.x; fromNode.y = n.y;
-                        n.x = tx; n.y = ty;
-                        this.renderer.markDirty();
-                        this._renderPagesTree();
-                    }
-                });
-
                 items.appendChild(item);
-
-                // Debate subdrawer
-                if (hasDebateChildren) {
-                    const subItems = document.createElement('div');
-                    subItems.className = 'page-sub-items collapsed';
-                    
-                    debateChildren.sort((a, b) => {
-                        const rA = parseInt(a.properties.round || '99');
-                        const rB = parseInt(b.properties.round || '99');
-                        if (rA !== rB) return rA - rB;
-                        return (a.properties.side || '').localeCompare(b.properties.side || '');
-                    }).forEach(child => {
-                        const side = child.properties.side;
-                        const round = child.properties.round;
-                        const isRes = child.properties.type === 'resolution';
-                        const indicator = isRes ? '◆' : (side === 'A' ? '🔴' : '🔵');
-                        const subLabel = isRes ? 'Resolution' : `R${round} · ${side}`;
-                        
-                        const subItem = document.createElement('div');
-                        subItem.className = 'page-item page-sub-item' + (this.selectedNodes.has(child.id) ? ' active' : '');
-                        subItem.innerHTML = `<span class="page-sub-indicator">${indicator}</span><span class="page-item-label">${subLabel}</span>`;
-                        subItem.addEventListener('click', () => {
-                            this._clearSelection();
-                            this._selectNode(child);
-                            this.renderer.panTo(child.x, child.y);
-                            this._openInspector(child);
-                        });
-                        subItems.appendChild(subItem);
-                    });
-                    
-                    items.appendChild(subItems);
-                    
-                    // Toggle subdrawer
-                    const toggle = item.querySelector('.page-item-toggle');
-                    if (toggle) {
-                        toggle.addEventListener('click', (e) => {
-                            e.stopPropagation();
-                            subItems.classList.toggle('collapsed');
-                            toggle.textContent = subItems.classList.contains('collapsed') ? '▶' : '▼';
-                        });
-                    }
-                }
             });
 
             groupEl.appendChild(header);
             groupEl.appendChild(items);
             container.appendChild(groupEl);
-        }
-
-        if (!anyNodes) {
-            container.innerHTML = '<div class="pages-empty">[ NO PAGES ]<br>Double-click the canvas or use + NEW PAGE</div>';
         }
     }
 

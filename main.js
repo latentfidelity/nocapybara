@@ -171,6 +171,11 @@ ipcMain.handle('get-config', () => config);
 
 // IPC for Gemini API calls (proxied through main process)
 ipcMain.handle('gemini-request', async (event, prompt, useGrounding = false, model = 'gemini-2.5-flash') => {
+    // Route OpenRouter models
+    if (model.startsWith('or:')) {
+        return handleOpenRouterRequest(prompt, model.slice(3));
+    }
+
     const apiKey = config.gemini_api_key;
     if (!apiKey) return { error: 'No Gemini API key configured' };
 
@@ -208,6 +213,39 @@ ipcMain.handle('gemini-request', async (event, prompt, useGrounding = false, mod
         return { error: err.message };
     }
 });
+
+// OpenRouter handler
+async function handleOpenRouterRequest(prompt, model) {
+    const apiKey = config.openrouter_api_key;
+    if (!apiKey) return { error: 'No OpenRouter API key configured. Add "openrouter_api_key" to config.local.json' };
+
+    try {
+        const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`,
+                'HTTP-Referer': 'https://nocapybara.app',
+                'X-Title': 'NoCapybara'
+            },
+            body: JSON.stringify({
+                model: model,
+                messages: [{ role: 'user', content: prompt }],
+                temperature: 0.4,
+                max_tokens: 8192
+            })
+        });
+        const data = await response.json();
+        if (data.choices && data.choices[0]) {
+            const text = data.choices[0].message?.content || '';
+            if (!text) return { error: 'Empty response from OpenRouter' };
+            return { text };
+        }
+        return { error: data.error?.message || 'No response from OpenRouter' };
+    } catch (err) {
+        return { error: err.message };
+    }
+}
 
 // Streaming Gemini API
 ipcMain.handle('gemini-stream', async (event, prompt, useGrounding = false, model = 'gemini-2.5-flash') => {
