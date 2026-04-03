@@ -1431,7 +1431,7 @@ class ReflectApp {
             position: absolute;
             left: ${screenPos.x - 100}px;
             top: ${screenPos.y + 30}px;
-            z-index: 300;
+            z-index: 1000;
             display: flex;
             align-items: center;
             gap: 6px;
