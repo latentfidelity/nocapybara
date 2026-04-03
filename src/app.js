@@ -2312,7 +2312,8 @@ Write this as a structured document with clear headings. Be precise, honest, and
     // ======================== WORD COUNT ========================
 
     _updateWordCount(text) {
-        const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+        const str = String(text || '');
+        const words = str.trim() ? str.trim().split(/\s+/).length : 0;
         const el = document.getElementById('word-count');
         if (el) el.textContent = `${words} WORDS`;
     }
