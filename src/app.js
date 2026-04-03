@@ -1999,7 +1999,20 @@ Write concise, substantive paragraphs. Plain text only, no markdown headers. Be 
     }
 
     _buildDebatePrompt(topic, history, side, round, totalRounds) {
+        const syntaxRef = `
+FORMATTING GUIDE — You are writing inside a knowledge modeling environment called Reflect. Use these features:
+
+- **Markdown**: Use # headings, **bold**, *italic*, > blockquotes, - bullet lists, 1. numbered lists
+- **Wiki Links**: Reference concepts with [[Double Brackets]] — e.g. [[Consciousness]], [[Emergence]], [[Free Will]]
+  These create navigable links between knowledge nodes. Use them liberally for key concepts.
+- **Embeds**: Use ![[Node Name]] to embed another node's content inline
+- **Tags**: Use #hashtags for categorization — e.g. #philosophy #epistemology #open-question
+
+Write richly formatted, interconnected arguments. Every key concept should be a [[wiki link]].
+`;
+
         let context = `You are Debater ${side} in an intellectual debate. The topic is:\n\n"${topic}"\n\n`;
+        context += syntaxRef + '\n';
 
         if (history.length > 0) {
             context += `Previous arguments:\n\n`;
@@ -2009,18 +2022,18 @@ Write concise, substantive paragraphs. Plain text only, no markdown headers. Be 
         }
 
         if (round === 1) {
-            context += `This is Round 1 of ${totalRounds}. Present your opening argument. Be substantive, cite reasoning, and stake out a clear position. 3-5 paragraphs.`;
+            context += `This is Round 1 of ${totalRounds}. Present your opening argument. Be substantive, cite reasoning, and stake out a clear position. Use [[wiki links]] for every key concept you introduce. Use markdown headings and structure. 3-5 paragraphs.`;
         } else if (round === totalRounds) {
-            context += `This is the FINAL round (${round}/${totalRounds}). You must now identify areas of genuine agreement with your opponent while maintaining intellectual honesty about remaining disagreements. Focus on convergence toward truth. 3-5 paragraphs.`;
+            context += `This is the FINAL round (${round}/${totalRounds}). Identify areas of genuine agreement with your opponent while maintaining intellectual honesty about remaining disagreements. Focus on convergence toward truth. Use [[wiki links]] and markdown formatting. 3-5 paragraphs.`;
         } else {
-            context += `This is Round ${round} of ${totalRounds}. Directly respond to your opponent's latest argument. Acknowledge valid points, challenge weak ones, refine your position. Be rigorous but fair. 3-5 paragraphs.`;
+            context += `This is Round ${round} of ${totalRounds}. Directly respond to your opponent's latest argument. Acknowledge valid points, challenge weak ones, refine your position. Use [[wiki links]] for concepts and markdown formatting. Be rigorous but fair. 3-5 paragraphs.`;
         }
 
         return context;
     }
 
     _buildResolutionPrompt(topic, history) {
-        let prompt = `You are a neutral synthesizer. Two AI models have debated the following topic:\n\n"${topic}"\n\nHere is the complete debate transcript:\n\n`;
+        let prompt = `You are a neutral synthesizer writing inside a knowledge modeling environment called Reflect. Two AI models have debated the following topic:\n\n"${topic}"\n\nHere is the complete debate transcript:\n\n`;
 
         history.forEach(h => {
             prompt += `=== DEBATER ${h.role} — ROUND ${h.round} ===\n${h.content}\n\n`;
@@ -2028,13 +2041,30 @@ Write concise, substantive paragraphs. Plain text only, no markdown headers. Be 
 
         prompt += `Now synthesize a FUNDAMENTAL TRUTH DOCUMENT — a resolution that captures:
 
-1. **Core Truth**: What both sides ultimately agree on
-2. **Key Insights**: The strongest arguments from each side
-3. **Resolved Tensions**: Where seeming disagreements are actually compatible
-4. **Remaining Questions**: Genuine open questions that merit further investigation
-5. **Conclusion**: A clear, actionable statement of the established truth
+# Core Truth
+What both sides ultimately agree on
 
-Write this as a structured document with clear headings. Be precise, honest, and intellectually rigorous. This document should stand alone as a definitive analysis of the topic. Do NOT hedge unnecessarily — state what is true.`;
+# Key Insights
+The strongest arguments from each side
+
+# Resolved Tensions
+Where seeming disagreements are actually compatible
+
+# Remaining Questions
+Genuine open questions that merit further investigation
+
+# Conclusion
+A clear, actionable statement of the established truth
+
+FORMATTING REQUIREMENTS:
+- Use # markdown headings for each section
+- Use **bold** for emphasis and *italic* for nuance
+- Use [[Double Bracket Links]] for every key concept — e.g. [[Consciousness]], [[Emergence]]
+- Use > blockquotes for direct references to debater arguments
+- Use #tags for categorization — e.g. #resolved #open-question #fundamental
+- Use ![[Node Name]] to embed if referencing content from a specific debate round
+
+This document should stand alone as a definitive, richly linked analysis. Do NOT hedge unnecessarily — state what is true.`;
 
         return prompt;
     }
