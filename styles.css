@@ -633,6 +633,12 @@ html, body {
     color: var(--text-primary);
 }
 
+.thought-popup-sep {
+    height: 1px;
+    background: var(--border);
+    margin: 4px 0;
+}
+
 .thought-submit {
     width: 28px;
     height: 28px;

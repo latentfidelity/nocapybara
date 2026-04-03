@@ -934,8 +934,9 @@ class ReflectApp {
     }
 
     async _aiGenerateTitle(node, text) {
-        try {
-            const prompt = `You are a knowledge structuring assistant. Given a stream-of-consciousness thought, populate ALL fields for a knowledge node.
+        if (!window.electronAPI || !window.electronAPI.geminiStream) return;
+
+        const prompt = `You are a knowledge structuring assistant. Given a stream-of-consciousness thought, populate ALL fields for a knowledge node.
 
 Return your response in EXACTLY this format (every field required):
 TITLE: <concise 3-6 word title>
@@ -955,20 +956,27 @@ Type definitions:
 
 Thought: "${text.replace(/"/g, '\\"')}"`;
 
-            const result = await window.electronAPI.geminiRequest(prompt, true, this.selectedModel);
-            if (result.text && !result.error) {
-                const response = result.text.trim();
-                const titleMatch = response.match(/^TITLE:\s*(.+)/m);
-                const typeMatch = response.match(/^TYPE:\s*(.+)/m);
-                const descMatch = response.match(/^DESCRIPTION:\s*(.+)/m);
-                const propsMatch = response.match(/^PROPERTIES:\s*(.+)/m);
-                const separatorIdx = response.indexOf('---');
+        this._status('[STREAMING...]');
+        node._loading = true;
+        this.renderer.markDirty();
+        let fullResponse = '';
+        let headerParsed = false;
+        let contentStartIdx = -1;
 
-                // Title
+        window.electronAPI.removeStreamListeners();
+
+        window.electronAPI.onStreamChunk((chunk) => {
+            fullResponse += chunk;
+
+            // Try to parse header fields as they arrive
+            if (!headerParsed) {
+                const titleMatch = fullResponse.match(/^TITLE:\s*(.+)/m);
                 if (titleMatch) {
                     const title = titleMatch[1].trim().replace(/^["']|["']$/g, '');
-                    if (title && title.length < 80) {
+                    if (title && title.length < 80 && node.label !== title) {
                         node.label = title;
+                        this.renderer.markDirty();
+                        this._renderPagesTree();
                         if (this.selectedNodes.has(node.id)) {
                             const el = document.getElementById('node-label');
                             if (el) el.value = title;
@@ -976,12 +984,13 @@ Thought: "${text.replace(/"/g, '\\"')}"`;
                     }
                 }
 
-                // Type
+                const typeMatch = fullResponse.match(/^TYPE:\s*(.+)/m);
                 if (typeMatch) {
                     const type = typeMatch[1].trim().toLowerCase();
                     const validTypes = ['concept', 'entity', 'rule', 'state', 'event', 'property'];
-                    if (validTypes.includes(type)) {
+                    if (validTypes.includes(type) && node.type !== type) {
                         node.type = type;
+                        this.renderer.markDirty();
                         if (this.selectedNodes.has(node.id)) {
                             const el = document.getElementById('node-type-select');
                             if (el) el.value = type;
@@ -989,10 +998,10 @@ Thought: "${text.replace(/"/g, '\\"')}"`;
                     }
                 }
 
-                // Description
+                const descMatch = fullResponse.match(/^DESCRIPTION:\s*(.+)/m);
                 if (descMatch) {
                     const desc = descMatch[1].trim();
-                    if (desc) {
+                    if (desc && node.description !== desc) {
                         node.description = desc;
                         if (this.selectedNodes.has(node.id)) {
                             const el = document.getElementById('node-description');
@@ -1001,38 +1010,58 @@ Thought: "${text.replace(/"/g, '\\"')}"`;
                     }
                 }
 
-                // Properties
+                const propsMatch = fullResponse.match(/^PROPERTIES:\s*(.+)/m);
                 if (propsMatch) {
                     const pairs = propsMatch[1].split(',').map(p => p.trim()).filter(Boolean);
                     for (const pair of pairs) {
                         const [key, ...valParts] = pair.split('=');
                         const val = valParts.join('=').trim();
-                        if (key && val) {
-                            node.properties.push({ key: key.trim(), value: val });
-                        }
+                        if (key && val) node.properties[key.trim()] = val;
                     }
                     if (this.selectedNodes.has(node.id)) {
                         this._renderCustomProperties(node);
                     }
                 }
 
-                // Content
-                if (separatorIdx !== -1) {
-                    const expanded = response.slice(separatorIdx + 3).trim();
-                    if (expanded) {
-                        node.content = text + '\n\n— — —\n\n' + expanded;
-                        if (this.selectedNodes.has(node.id)) {
-                            const el = document.getElementById('node-content');
-                            if (el) el.value = node.content;
-                        }
-                        this._status('[THOUGHT EXPANDED]', 'success');
+                // Check for separator — everything after is content
+                const sepIdx = fullResponse.indexOf('---');
+                if (sepIdx !== -1) {
+                    headerParsed = true;
+                    contentStartIdx = sepIdx + 3;
+                }
+            }
+
+            // Stream content into textarea
+            if (headerParsed) {
+                const contentSoFar = fullResponse.slice(contentStartIdx).trimStart();
+                node.content = text + '\n\n— — —\n\n' + contentSoFar;
+                if (this.selectedNodes.has(node.id)) {
+                    const el = document.getElementById('node-content');
+                    if (el) {
+                        el.value = node.content;
+                        el.scrollTop = el.scrollHeight;
                     }
                 }
-
-                this.renderer.markDirty();
-                this._renderPagesTree();
             }
-        } catch (e) { this._status('[AI ERROR: ' + e.message + ']', 'error'); }
+        });
+
+        window.electronAPI.onStreamDone(() => {
+            node._loading = false;
+            this._pushContentState(node, node.content);
+            this.renderer.markDirty();
+            this._renderPagesTree();
+            this._status('[THOUGHT EXPANDED]', 'success');
+            window.electronAPI.removeStreamListeners();
+        });
+
+        window.electronAPI.onStreamError((err) => {
+            node._loading = false;
+            this.renderer.markDirty();
+            this._status('[AI ERROR: ' + err + ']', 'error');
+            window.electronAPI.removeStreamListeners();
+        });
+
+        window.electronAPI.geminiStream(prompt, true, this.selectedModel);
     }
 
     // ======================== CONTENT STATE TREE ========================

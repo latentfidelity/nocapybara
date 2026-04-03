@@ -286,6 +286,21 @@ class GraphRenderer {
 
         const radius = isSelected ? 14 : (isHovered ? 13 : 12);
 
+        // Loading pulse ring
+        if (node._loading) {
+            const t = (Date.now() % 1500) / 1500;
+            const pulseR = radius + 6 + t * 18;
+            const pulseAlpha = 0.3 * (1 - t);
+            ctx.save();
+            ctx.strokeStyle = `rgba(255,255,255,${pulseAlpha})`;
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.arc(node.x, node.y, pulseR, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.restore();
+            this.markDirty(); // keep animating
+        }
+
         // Glow for selected
         if (isSelected) {
             ctx.save();
