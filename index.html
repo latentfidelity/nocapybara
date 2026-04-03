@@ -256,6 +256,22 @@
                         <div class="thought-popup-item" data-model="or:qwen/qwen3-32b">&#x26A1; Qwen3 32B (Qwen)</div>
                     </div>
                 </div>
+                <!-- Branch Debate Config Overlay -->
+                <div id="branch-config-overlay" class="debate-overlay hidden" style="z-index: 2000;">
+                    <div class="debate-modal">
+                        <div class="debate-modal-header">
+                            <span id="branch-config-title" class="debate-modal-title">CONFIGURE DEBATE BRANCH</span>
+                            <button id="branch-config-close" class="panel-close" title="Cancel">×</button>
+                        </div>
+                        <div id="branch-config-body" style="padding: 24px; display: flex; flex-direction: column; gap: 24px; align-items: center; background: rgba(17,17,17,0.85);">
+                            <div id="branch-config-topic-preview" style="color: var(--text-secondary); text-align: center; font-style: italic; max-width: 80%;"></div>
+                            <div id="branch-config-controls-container" style="display: flex; justify-content: center; width: 100%; margin-top: 12px; margin-bottom: 24px;">
+                                <!-- Existing controls will be moved here dynamically -->
+                            </div>
+                            <button id="branch-config-start-btn" style="background:#FF5555; color:#fff; border:none; padding:12px 24px; border-radius:8px; font-family:'Space Grotesk',sans-serif; font-weight:bold; cursor:pointer;" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">LAUNCH BRANCH DEBATE</button>
+                        </div>
+                    </div>
+                </div>
                 <!-- Debate Transcript Modal -->
                 <div id="debate-overlay" class="debate-overlay hidden">
                     <div class="debate-modal">
