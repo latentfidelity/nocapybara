@@ -953,6 +953,16 @@ class ReflectApp {
             this._rebuildDebaterSlots();
         });
 
+        const judgeBtn = document.getElementById('debate-judge-btn');
+        if (judgeBtn) {
+            judgeBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this._modelMenuTarget = 'judge';
+                const modelMenu = document.getElementById('model-menu');
+                modelMenu.classList.toggle('hidden');
+            });
+        }
+
         document.querySelectorAll('.thought-popup-item').forEach(item => {
             item.addEventListener('click', () => {
                 const model = item.dataset.model;
@@ -961,6 +971,11 @@ class ReflectApp {
                 if (this._modelMenuTarget === 'note') {
                     this.selectedModel = model;
                     modelLabel.textContent = label;
+                } else if (this._modelMenuTarget === 'judge') {
+                    this.debateJudgeModel = model;
+                    const cleanLabel = label.replace(/[◆⚡◇○◈]\s*/, '');
+                    const el = document.getElementById('debate-judge-label');
+                    if (el) el.innerHTML = `&#x2696;&#xFE0F; JUDGE: ${cleanLabel}`;
                 } else if (typeof this._modelMenuTarget === 'number') {
                     const slotIdx = this._modelMenuTarget;
                     if (this.debaters[slotIdx]) {
@@ -2343,6 +2358,30 @@ Write concise, substantive paragraphs. Plain text only, no markdown headers. Be 
                     history.push({ role: debater.letter, round, content: response });
                     this.renderer.markDirty();
                 }
+
+                // IMPROVEMENT: Impartial Judge Mid-Round Recap
+                if (round < rounds) {
+                    statusEl.innerHTML = `<span class="thinking-dots">JUDGE recapping Round ${round}</span>`;
+                    const judgeModel = this.debateJudgeModel || 'gemini-2.5-flash';
+                    const recapPrompt = this._buildRecapPrompt(topic, history, round, numDebaters);
+                    const recapResult = await window.electronAPI.geminiRequest(recapPrompt, false, judgeModel);
+                    const recapText = recapResult?.text || recapResult?.error || '';
+
+                    addToTranscript('JUDGE', round, judgeModel, recapText, '&#x2696;&#xFE0F;');
+
+                    const recapY = wp.y + round * 120 + 60;
+                    const recapNode = this.model.addNode('concept', wp.x, recapY, `R${round} Recap`);
+                    recapNode.description = `⚖️ JUDGE: ${judgeModel} — Round ${round} Recap`;
+                    recapNode.content = recapText;
+                    recapNode.properties = { side: 'JUDGE', round: round.toString(), model: judgeModel };
+                    recapNode.source = { type: 'debate-recap', model: judgeModel, timestamp: Date.now() };
+
+                    // Connect all debater nodes from this round to the recap node
+                    lastNodes.forEach(n => this.model.addEdge(n.id, recapNode.id, 'reviewed by'));
+
+                    history.push({ role: 'JUDGE', round, content: recapText });
+                    this.renderer.markDirty();
+                }
             }
 
             // RESOLUTION
@@ -2350,29 +2389,32 @@ Write concise, substantive paragraphs. Plain text only, no markdown headers. Be 
             roundIndicator.textContent = 'RESOLUTION';
 
             const resolutionPrompt = this._buildResolutionPrompt(topic, history, numDebaters);
-            const resultRes = await window.electronAPI.geminiRequest(resolutionPrompt, false, this.debaters[0].model);
+            const judgeModel = this.debateJudgeModel || 'gemini-2.5-flash';
+            const resultRes = await window.electronAPI.geminiRequest(resolutionPrompt, false, judgeModel);
             const resolution = resultRes?.text || resultRes?.error || String(resultRes || '');
 
             const resMsg = document.createElement('div');
             resMsg.className = 'debate-msg side-resolution';
             resMsg.innerHTML = `
-                <div class="debate-msg-header">\u25C6 RESOLUTION \u00B7 synthesizer</div>
+                <div class="debate-msg-header">\u25C6 RESOLUTION \u00B7 ${judgeModel}</div>
                 <div class="debate-msg-body">${renderMarkdown(String(resolution || ''))}</div>
             `;
             transcript.appendChild(resMsg);
             transcript.scrollTop = transcript.scrollHeight;
 
-            const resNode = this.model.addNode('synthesis', wp.x, wp.y + (rounds + 1) * 120, 'Resolution');
+            const resNode = this.model.addNode('synthesis', wp.x, wp.y + (rounds + 1) * 120 + 60, 'Resolution');
             resNode.label = `Resolution: ${topic.slice(0, 30)}`;
-            resNode.description = `Fundamental truth document \u2014 ${numDebaters} debaters, ${rounds} rounds`;
+            resNode.description = `⚖️ JUDGE: ${judgeModel} \u2014 ${numDebaters} debaters, ${rounds} rounds`;
             resNode.content = resolution;
             resNode.properties = {
                 type: 'resolution',
                 models: modelList.join(', '),
+                judge: judgeModel,
                 rounds: rounds.toString(),
                 topic: topic
             };
-            resNode.source = { type: 'debate-resolution', model: this.debaters[0].model, timestamp: Date.now() };
+            resNode._debaterColor = '#8ED1D1';
+            resNode.source = { type: 'debate-resolution', model: judgeModel, timestamp: Date.now() };
             resNode.epistemicStatus = 'supported';
             resNode.confidence = 0.7;
 
@@ -2434,6 +2476,18 @@ FORMATTING GUIDE \u2014 You are writing inside the NoCapybara Epistemic Engine. 
             context += `This is Round ${round} of ${totalRounds}. Dissect the latest arguments from the ledger. Acknowledge valid axioms, shatter logical inconsistencies, refine your topology. Use [[wiki links]]. Be rigorous, objective, and unflinching. 3-5 paragraphs.`;
         }
 
+        return context;
+    }
+
+    _buildRecapPrompt(topic, history, round, numDebaters) {
+        let context = `You are NoCapybara's Impartial Judge in a ${numDebaters}-way debate engine. The topic is:\n\n"${topic}"\n\n`;
+        context += `We have just concluded Round ${round}. Here is the complete ledger of the debate so far:\n\n`;
+        history.forEach(h => {
+            if (h.role !== 'JUDGE') {
+                context += `--- MODEL ${h.role} (Round ${h.round}) ---\n${h.content}\n\n`;
+            }
+        });
+        context += `**JUDGE DIRECTIVE**: Recap the state of the board at the end of Round ${round}. \n1. Summarize the strongest surviving argument.\n2. Summarize the most devastating logical critique.\n3. State explicitly what the debaters MUST focus on answering or resolving in the next round.\n\nKeep it concise, objective, and unflinchingly analytical. Use [[wiki links]] for concepts. Max 2 paragraphs.`;
         return context;
     }
 

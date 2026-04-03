@@ -881,7 +881,7 @@ html, body {
     background: rgba(232, 201, 110, 0.05);
 }
 
-.debate-msg.side-resolution {
+.debate-msg.side-resolution, .debate-msg.side-judge {
     align-self: center;
     max-width: 95%;
     border: 1px solid var(--text-primary);
@@ -902,7 +902,7 @@ html, body {
 .debate-msg.side-c .debate-msg-header { color: #6EBF8B; }
 .debate-msg.side-d .debate-msg-header { color: #C4A6E0; }
 .debate-msg.side-e .debate-msg-header { color: #E8C96E; }
-.debate-msg.side-resolution .debate-msg-header { color: var(--text-primary); }
+.debate-msg.side-resolution .debate-msg-header, .debate-msg.side-judge .debate-msg-header { color: var(--text-primary); }
 
 .debate-status {
     padding: 8px var(--space-lg);
