@@ -748,6 +748,13 @@ html, body {
     color: var(--text-secondary);
 }
 
+.debater-slots {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: wrap;
+}
+
 .debate-vs {
     font-family: 'Space Mono', monospace;
     font-size: 8px;
