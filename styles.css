@@ -648,7 +648,7 @@ html, body {
     left: 50%;
     transform: translateX(-50%);
     z-index: 45;
-    width: min(520px, calc(100% - 48px));
+    width: min(760px, calc(100% - 48px));
 }
 
 .thought-bar-inner {
@@ -661,17 +661,12 @@ html, body {
     -webkit-backdrop-filter: blur(16px);
     border: 1px solid var(--border);
     border-radius: 6px;
-    box-shadow: 0 4px 24px rgba(0,0,0,0.4);
-    transition: border-color var(--speed-fast) var(--ease), box-shadow var(--speed-fast) var(--ease);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    transition: border-color var(--speed-fast) var(--ease);
 }
 
 .thought-bar-inner:focus-within {
     border-color: var(--border-visible);
-    box-shadow: 0 4px 24px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.05);
-}
-
-.thought-bar-inner::-webkit-resizer {
-    display: none !important;
 }
 
 #thought-input {
@@ -679,14 +674,16 @@ html, body {
     background: transparent;
     border: none;
     color: var(--text-primary);
+    font-size: 14px;
     font-family: 'Space Grotesk', sans-serif;
-    font-size: 13px;
-    line-height: 1.5;
-    outline: none;
     resize: none;
-    min-height: 20px;
-    max-height: 120px;
-    overflow: hidden;
+    padding: 0;
+    line-height: 1.5;
+    max-height: 200px;
+}
+
+#thought-input:focus {
+    outline: none;
 }
 
 #thought-input::-webkit-resizer,
@@ -711,12 +708,14 @@ html, body {
     padding-bottom: 6px;
     background: var(--surface);
     border-top: 1px solid var(--border);
+    flex-wrap: wrap;
 }
 
 .toolbar-group {
     display: flex;
     align-items: center;
     gap: 4px;
+    flex-wrap: wrap;
 }
 
 .toolbar-group.hidden { display: none; }

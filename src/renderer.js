@@ -251,12 +251,14 @@ class GraphRenderer {
 
         // Post-processing: Subtle chromatic aberration / bloom
         // We replicate the canvas lightly with color offsets and 'screen' composite
-        ctx.save();
-        ctx.globalCompositeOperation = 'screen';
-        ctx.globalAlpha = 0.08;
-        ctx.drawImage(this.canvas, -2, 0); // Red/left shift
-        ctx.drawImage(this.canvas, 2, 0);  // Blue/right shift
-        ctx.restore();
+        if (this.postProcessing !== false) {
+            ctx.save();
+            ctx.globalCompositeOperation = 'screen';
+            ctx.globalAlpha = 0.08;
+            ctx.drawImage(this.canvas, -2, 0); // Red/left shift
+            ctx.drawImage(this.canvas, 2, 0);  // Blue/right shift
+            ctx.restore();
+        }
 
         ctx.restore();
     }
