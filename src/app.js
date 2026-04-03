@@ -1506,23 +1506,23 @@ class ReflectApp {
     async _aiGenerateTitle(node, text) {
         if (!window.electronAPI || !window.electronAPI.geminiStream) return;
 
-        const prompt = `You are a knowledge structuring assistant. Given a stream-of-consciousness thought, populate ALL fields for a knowledge node.
+        const prompt = `You are a rigorous epistemic assistant running inside NoCapybara. Given a raw thought or claim, formalize it into a structured knowledge node.
 
 Return your response in EXACTLY this format (every field required):
 TITLE: <concise 3-6 word title>
-TYPE: <one of: idea, topic, note, rule, event, detail>
-DESCRIPTION: <1-2 sentence summary>
-PROPERTIES: <key=value pairs, comma separated, e.g. domain=physics, complexity=high, related_to=quantum mechanics>
+TYPE: <one of: claim, evidence, argument, axiom, question, synthesis>
+DESCRIPTION: <1-2 sentence logical summary>
+PROPERTIES: <key=value pairs, comma separated, e.g. domain=logic, falsifiable=true, related_to=quantum mechanics>
 ---
-<expanded content: well-structured page with key points, implications, connections to explore. 3-8 paragraphs, plain text, no markdown headers. Be specific and factual.>
+<expanded content: rigorously structured page. Outline the premises, empirical grounding, and logical implications. 3-8 paragraphs, plain text, no markdown headers. Be specific and factual.>
 
 Type definitions:
-- idea: abstract thoughts, theories, principles, concepts
-- topic: concrete things, people, places, systems, subjects
-- note: general observations, status updates, reflections
-- rule: laws, constraints, guidelines, if-then relationships
-- event: occurrences, actions, triggers, things that happen
-- detail: specific facts, measurements, data points, attributes
+- claim: an assertion to be examined
+- evidence: empirical data, direct observation, indisputable fact
+- argument: a structured logical chain mapping claims to evidence
+- axiom: a foundational, self-evident assumption
+- question: an open inquiry or contradiction requiring resolution
+- synthesis: a convergence of multiple branches
 
 Thought: "${text.replace(/"/g, '\\"')}"`;
 
@@ -1582,7 +1582,7 @@ Thought: "${text.replace(/"/g, '\\"')}"`;
                 const typeMatch = fullResponse.match(/^TYPE:\s*(.+)/m);
                 if (typeMatch) {
                     const type = typeMatch[1].trim().toLowerCase();
-                    const validTypes = ['idea', 'topic', 'note', 'rule', 'event', 'detail'];
+                    const validTypes = ['claim', 'evidence', 'argument', 'axiom', 'question', 'synthesis'];
                     if (validTypes.includes(type) && node.type !== type) {
                         node.type = type;
                         this.renderer.markDirty();
