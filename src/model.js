@@ -3,12 +3,12 @@
 // ============================================
 
 const NODE_TYPES = {
-    idea:     { label: 'Idea',    color: '#b0b0b0', glow: 'rgba(176,176,176,0.15)',  shape: 'circle' },
-    topic:    { label: 'Topic',   color: '#d4d4d4', glow: 'rgba(212,212,212,0.15)',  shape: 'roundRect' },
-    note:     { label: 'Note',    color: '#c8c8c8', glow: 'rgba(200,200,200,0.15)',  shape: 'hexagon' },
-    rule:     { label: 'Rule',    color: '#8a8a8a', glow: 'rgba(138,138,138,0.15)',  shape: 'diamond' },
-    event:    { label: 'Event',   color: '#707070', glow: 'rgba(112,112,112,0.15)',  shape: 'triangle' },
-    detail:   { label: 'Detail',  color: '#9e9e9e', glow: 'rgba(158,158,158,0.15)',  shape: 'rect' },
+    claim:     { label: 'Claim',     color: '#7EAAE2', glow: 'rgba(126,170,226,0.15)', shape: 'circle' },
+    evidence:  { label: 'Evidence',  color: '#6EBF8B', glow: 'rgba(110,191,139,0.15)', shape: 'hexagon' },
+    argument:  { label: 'Argument',  color: '#C4A6E0', glow: 'rgba(196,166,224,0.15)', shape: 'roundRect' },
+    axiom:     { label: 'Axiom',     color: '#E8C96E', glow: 'rgba(232,201,110,0.15)', shape: 'diamond' },
+    question:  { label: 'Question',  color: '#E0866E', glow: 'rgba(224,134,110,0.15)', shape: 'triangle' },
+    synthesis: { label: 'Synthesis', color: '#8ED1D1', glow: 'rgba(142,209,209,0.15)', shape: 'rect' },
 };
 
 const EPISTEMIC_STATUSES = {
