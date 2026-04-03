@@ -64,8 +64,10 @@ class ReflectApp {
 
         // Mode: 'note' or 'debate'
         this.captureMode = 'note';
-        this.debateModelA = 'gemini-2.5-pro';
-        this.debateModelB = 'gemini-3-pro-preview';
+        this.debaters = [
+            { model: 'gemini-2.5-pro', letter: 'A', color: '#E0866E', emoji: '\uD83D\uDD34' },
+            { model: 'gemini-3-pro-preview', letter: 'B', color: '#7EAAE2', emoji: '\uD83D\uDD35' },
+        ];
         this._debateRunning = false;
 
         // Content state tree: nodeId -> { states: [string], index: number }
@@ -203,6 +205,7 @@ class ReflectApp {
             this.dragState = 'move';
             this.dragStart = { x: pos.x, y: pos.y };
             this.canvas.style.cursor = 'move';
+            this.renderer._draggedNode = node;
             return;
         }
 
@@ -318,6 +321,7 @@ class ReflectApp {
             this.renderer.selectionBox = null;
             this.dragState = null;
             this.canvas.style.cursor = 'default';
+            this.renderer._draggedNode = null;
             this.renderer.markDirty();
         }
     }
@@ -922,7 +926,10 @@ class ReflectApp {
         });
 
         // Shared model menu target
-        this._modelMenuTarget = 'note'; // 'note', 'a', or 'b'
+        this._modelMenuTarget = 'note'; // 'note' or slot index
+        this._debaterColors = ['#E0866E', '#7EAAE2', '#6EBF8B', '#C4A6E0', '#E8C96E'];
+        this._debaterLetters = ['A', 'B', 'C', 'D', 'E'];
+        this._debaterEmojis = ['\uD83D\uDD34', '\uD83D\uDD35', '\uD83D\uDFE2', '\uD83D\uDFE3', '\uD83D\uDFE1'];
 
         document.getElementById('model-btn').addEventListener('click', (e) => {
             e.stopPropagation();
@@ -930,16 +937,20 @@ class ReflectApp {
             modelMenu.classList.toggle('hidden');
         });
 
-        document.getElementById('model-a-btn').addEventListener('click', (e) => {
-            e.stopPropagation();
-            this._modelMenuTarget = 'a';
-            modelMenu.classList.toggle('hidden');
-        });
+        // Wire debater slot clicks
+        this._wireDebaterSlots();
 
-        document.getElementById('model-b-btn').addEventListener('click', (e) => {
-            e.stopPropagation();
-            this._modelMenuTarget = 'b';
-            modelMenu.classList.toggle('hidden');
+        // Add debater button
+        document.getElementById('add-debater-btn').addEventListener('click', () => {
+            if (this.debaters.length >= 5) { this._status('[MAX 5 DEBATERS]'); return; }
+            const idx = this.debaters.length;
+            this.debaters.push({
+                model: 'gemini-2.5-flash',
+                letter: this._debaterLetters[idx],
+                color: this._debaterColors[idx],
+                emoji: this._debaterEmojis[idx]
+            });
+            this._rebuildDebaterSlots();
         });
 
         document.querySelectorAll('.thought-popup-item').forEach(item => {
@@ -950,12 +961,14 @@ class ReflectApp {
                 if (this._modelMenuTarget === 'note') {
                     this.selectedModel = model;
                     modelLabel.textContent = label;
-                } else if (this._modelMenuTarget === 'a') {
-                    this.debateModelA = model;
-                    document.getElementById('model-a-label').textContent = '🔴 A: ' + label.replace(/[◆⚡◇○◈]\s*/, '');
-                } else if (this._modelMenuTarget === 'b') {
-                    this.debateModelB = model;
-                    document.getElementById('model-b-label').textContent = '🔵 B: ' + label.replace(/[◆⚡◇○◈]\s*/, '');
+                } else if (typeof this._modelMenuTarget === 'number') {
+                    const slotIdx = this._modelMenuTarget;
+                    if (this.debaters[slotIdx]) {
+                        this.debaters[slotIdx].model = model;
+                        const cleanLabel = label.replace(/[◆⚡◇○◈]\s*/, '');
+                        const el = document.getElementById(`debater-label-${slotIdx}`);
+                        if (el) el.textContent = `${this.debaters[slotIdx].emoji} ${this.debaters[slotIdx].letter}: ${cleanLabel}`;
+                    }
                 }
 
                 document.querySelectorAll('.thought-popup-item').forEach(i => i.classList.remove('active'));
@@ -1294,6 +1307,52 @@ class ReflectApp {
     _hideModal() {
         document.getElementById('modal-overlay').classList.add('hidden');
         this._modalData = null;
+    }
+
+    // ======================== DEBATER SLOTS ========================
+
+    _wireDebaterSlots() {
+        const modelMenu = document.getElementById('model-menu');
+        document.querySelectorAll('.debater-slot').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this._modelMenuTarget = parseInt(btn.dataset.slot);
+                modelMenu.classList.toggle('hidden');
+            });
+        });
+    }
+
+    _rebuildDebaterSlots() {
+        const container = document.getElementById('debater-slots');
+        container.innerHTML = '';
+        this.debaters.forEach((d, i) => {
+            if (i > 0) {
+                const vs = document.createElement('span');
+                vs.className = 'debate-vs';
+                vs.textContent = 'VS';
+                container.appendChild(vs);
+            }
+            const btn = document.createElement('button');
+            btn.className = 'thought-tool debate-model-btn debater-slot';
+            btn.dataset.slot = i;
+            btn.title = `Debater ${i + 1}`;
+            const shortModel = d.model.replace(/^or:.*\//, '').replace(/^gemini-/, '').slice(0, 12).toUpperCase();
+            btn.innerHTML = `<span class="debater-label" id="debater-label-${i}">${d.emoji} ${d.letter}: ${shortModel}</span>`;
+            container.appendChild(btn);
+        });
+        // Add remove button if > 2
+        if (this.debaters.length > 2) {
+            const rmBtn = document.createElement('button');
+            rmBtn.className = 'thought-tool';
+            rmBtn.textContent = '\u2212';
+            rmBtn.title = 'Remove last debater';
+            rmBtn.addEventListener('click', () => {
+                this.debaters.pop();
+                this._rebuildDebaterSlots();
+            });
+            container.appendChild(rmBtn);
+        }
+        this._wireDebaterSlots();
     }
 
     // ======================== THOUGHT CAPTURE ========================
@@ -2150,6 +2209,7 @@ Write concise, substantive paragraphs. Plain text only, no markdown headers. Be 
         this._debateRunning = true;
         const rounds = parseInt(document.getElementById('debate-rounds').value) || 5;
         const mode = document.getElementById('debate-mode')?.value || 'standard';
+        const numDebaters = this.debaters.length;
 
         // Open the debate modal
         const overlay = document.getElementById('debate-overlay');
@@ -2158,12 +2218,12 @@ Write concise, substantive paragraphs. Plain text only, no markdown headers. Be 
         const roundIndicator = document.getElementById('debate-round-indicator');
         overlay.classList.remove('hidden');
         transcript.innerHTML = '';
-        const modeLabels = { standard: '⚔ STANDARD', steelman: '🛡 STEEL MAN', redteam: '🔴 RED TEAM', socratic: '🏛 SOCRATIC' };
+        const modeLabels = { standard: '\u2694 STANDARD', steelman: '\uD83D\uDEE1 STEEL MAN', redteam: '\uD83D\uDD34 RED TEAM', socratic: '\uD83D\u0018DB SOCRATIC' };
+        const debaterList = this.debaters.map(d => `${d.emoji}${d.letter}`).join(' vs ');
         document.getElementById('debate-modal-title').textContent = `${modeLabels[mode] || 'DEBATE'}: ${topic.slice(0, 50)}`;
-        roundIndicator.textContent = `${rounds} ROUNDS`;
+        roundIndicator.textContent = `${numDebaters} DEBATERS \u00B7 ${rounds} ROUNDS`;
         statusEl.textContent = 'Initializing...';
 
-        // Close button
         document.getElementById('debate-modal-close').onclick = () => {
             overlay.classList.add('hidden');
         };
@@ -2172,10 +2232,11 @@ Write concise, substantive paragraphs. Plain text only, no markdown headers. Be 
         const wp = this.renderer.screenToWorld(this.renderer.viewW / 2, this.renderer.viewH / 2);
         const topicNode = this.model.addNode('claim', wp.x, wp.y - 120, topic);
         topicNode.description = 'Debate topic';
+        const modelList = this.debaters.map(d => d.model);
         topicNode.properties = {
             mode: 'debate',
-            model_a: this.debateModelA,
-            model_b: this.debateModelB,
+            debaters: numDebaters.toString(),
+            models: modelList.join(', '),
             rounds: rounds.toString()
         };
         topicNode._loading = true;
@@ -2185,14 +2246,13 @@ Write concise, substantive paragraphs. Plain text only, no markdown headers. Be 
         this._selectNode(topicNode);
 
         const history = [];
-        let lastNodeA = topicNode;
-        let lastNodeB = topicNode;
+        const lastNodes = this.debaters.map(() => topicNode);
 
-        const addToTranscript = (side, round, model, content) => {
+        const addToTranscript = (letter, round, model, content, emoji) => {
             const msg = document.createElement('div');
-            msg.className = `debate-msg side-${side.toLowerCase()}`;
+            msg.className = `debate-msg side-${letter.toLowerCase()}`;
             msg.innerHTML = `
-                <div class="debate-msg-header">${side === 'RESOLUTION' ? '◆ RESOLUTION' : `${side === 'A' ? '🔴' : '🔵'} MODEL ${side} — ROUND ${round}`} · ${model}</div>
+                <div class="debate-msg-header">${emoji} MODEL ${letter} \u2014 ROUND ${round} \u00B7 ${model}</div>
                 <div class="debate-msg-body">${renderMarkdown(String(content || ''))}</div>
             `;
             transcript.appendChild(msg);
@@ -2201,90 +2261,92 @@ Write concise, substantive paragraphs. Plain text only, no markdown headers. Be 
 
         try {
             for (let round = 1; round <= rounds; round++) {
-                // Model A
                 roundIndicator.textContent = `ROUND ${round}/${rounds}`;
-                statusEl.innerHTML = `<span class="thinking-dots">Model A thinking</span>`;
 
-                const promptA = this._buildDebatePrompt(topic, history, 'A', round, rounds, mode);
-                const resultA = await window.electronAPI.geminiRequest(promptA, false, this.debateModelA);
-                const responseA = resultA?.text || resultA?.error || String(resultA || '');
+                for (let di = 0; di < numDebaters; di++) {
+                    const debater = this.debaters[di];
+                    statusEl.innerHTML = `<span class="thinking-dots">Model ${debater.letter} thinking</span>`;
 
-                addToTranscript('A', round, this.debateModelA, responseA);
+                    const prompt = this._buildDebatePrompt(topic, history, debater.letter, round, rounds, mode, numDebaters);
+                    const result = await window.electronAPI.geminiRequest(prompt, false, debater.model);
+                    const response = result?.text || result?.error || String(result || '');
 
-                const nodeA = this.model.addNode('argument', wp.x - 160, wp.y + round * 120, `R${round} — A`);
-                nodeA.label = `Round ${round}: Model A`;
-                nodeA.description = `${this.debateModelA} — Round ${round}`;
-                nodeA.content = responseA;
-                nodeA.properties = { side: 'A', round: round.toString(), model: this.debateModelA };
-                nodeA.source = { type: 'debate-round', model: this.debateModelA, timestamp: Date.now() };
-                nodeA.epistemicStatus = 'hypothesis';
-                this.model.addEdge(lastNodeA.id, nodeA.id, round === 1 ? 'opens' : 'responds');
-                lastNodeA = nodeA;
-                history.push({ role: 'A', round, content: responseA });
-                this.renderer.markDirty();
+                    addToTranscript(debater.letter, round, debater.model, response, debater.emoji);
 
-                // Model B
-                statusEl.innerHTML = `<span class="thinking-dots">Model B thinking</span>`;
+                    // Position debater nodes radially
+                    const angle = (di / numDebaters) * Math.PI * 2 - Math.PI / 2;
+                    const rx = 180, ry = 0;
+                    const nx = wp.x + Math.cos(angle) * rx;
+                    const ny = wp.y + round * 120;
 
-                const promptB = this._buildDebatePrompt(topic, history, 'B', round, rounds, mode);
-                const resultB = await window.electronAPI.geminiRequest(promptB, false, this.debateModelB);
-                const responseB = resultB?.text || resultB?.error || String(resultB || '');
+                    const node = this.model.addNode('argument', nx, ny, `R${round} \u2014 ${debater.letter}`);
+                    node.label = `Round ${round}: Model ${debater.letter}`;
+                    node.description = `${debater.model} \u2014 Round ${round}`;
+                    node.content = response;
+                    node.properties = { side: debater.letter, round: round.toString(), model: debater.model };
+                    node.source = { type: 'debate-round', model: debater.model, timestamp: Date.now() };
+                    node.epistemicStatus = 'hypothesis';
 
-                addToTranscript('B', round, this.debateModelB, responseB);
+                    this.model.addEdge(lastNodes[di].id, node.id, round === 1 ? 'opens' : 'responds');
 
-                const nodeB = this.model.addNode('argument', wp.x + 160, wp.y + round * 120, `R${round} — B`);
-                nodeB.label = `Round ${round}: Model B`;
-                nodeB.description = `${this.debateModelB} — Round ${round}`;
-                nodeB.content = responseB;
-                nodeB.properties = { side: 'B', round: round.toString(), model: this.debateModelB };
-                nodeB.source = { type: 'debate-round', model: this.debateModelB, timestamp: Date.now() };
-                nodeB.epistemicStatus = 'hypothesis';
-                this.model.addEdge(lastNodeB.id, nodeB.id, round === 1 ? 'opens' : 'responds');
-                this.model.addEdge(nodeA.id, nodeB.id, 'counters');
-                lastNodeB = nodeB;
-                history.push({ role: 'B', round, content: responseB });
-                this.renderer.markDirty();
+                    // Cross-link to previous debater in this round
+                    if (di > 0) {
+                        const prevNode = lastNodes[di - 1];
+                        if (prevNode !== topicNode) {
+                            this.model.addEdge(node.id, prevNode.id, 'counters');
+                        }
+                    }
+
+                    lastNodes[di] = node;
+                    history.push({ role: debater.letter, round, content: response });
+                    this.renderer.markDirty();
+                }
             }
 
             // RESOLUTION
             statusEl.innerHTML = '<span class="thinking-dots">Synthesizing resolution</span>';
             roundIndicator.textContent = 'RESOLUTION';
 
-            const resolutionPrompt = this._buildResolutionPrompt(topic, history);
-            const resultRes = await window.electronAPI.geminiRequest(resolutionPrompt, false, this.debateModelA);
+            const resolutionPrompt = this._buildResolutionPrompt(topic, history, numDebaters);
+            const resultRes = await window.electronAPI.geminiRequest(resolutionPrompt, false, this.debaters[0].model);
             const resolution = resultRes?.text || resultRes?.error || String(resultRes || '');
 
-            addToTranscript('RESOLUTION', null, 'synthesizer', resolution);
+            const resMsg = document.createElement('div');
+            resMsg.className = 'debate-msg side-resolution';
+            resMsg.innerHTML = `
+                <div class="debate-msg-header">\u25C6 RESOLUTION \u00B7 synthesizer</div>
+                <div class="debate-msg-body">${renderMarkdown(String(resolution || ''))}</div>
+            `;
+            transcript.appendChild(resMsg);
+            transcript.scrollTop = transcript.scrollHeight;
 
             const resNode = this.model.addNode('synthesis', wp.x, wp.y + (rounds + 1) * 120, 'Resolution');
             resNode.label = `Resolution: ${topic.slice(0, 30)}`;
-            resNode.description = `Fundamental truth document — ${rounds} rounds of debate`;
+            resNode.description = `Fundamental truth document \u2014 ${numDebaters} debaters, ${rounds} rounds`;
             resNode.content = resolution;
             resNode.properties = {
                 type: 'resolution',
-                model_a: this.debateModelA,
-                model_b: this.debateModelB,
+                models: modelList.join(', '),
                 rounds: rounds.toString(),
                 topic: topic
             };
-            resNode.source = { type: 'debate-resolution', model: this.debateModelA, timestamp: Date.now() };
+            resNode.source = { type: 'debate-resolution', model: this.debaters[0].model, timestamp: Date.now() };
             resNode.epistemicStatus = 'supported';
             resNode.confidence = 0.7;
 
-            this.model.addEdge(lastNodeA.id, resNode.id, 'synthesizes');
-            this.model.addEdge(lastNodeB.id, resNode.id, 'synthesizes');
+            lastNodes.forEach(n => this.model.addEdge(n.id, resNode.id, 'synthesizes'));
             this.model.addEdge(topicNode.id, resNode.id, 'resolves');
 
             topicNode._loading = false;
-            topicNode.content = `# Debate: ${topic}\n\nModels: ${this.debateModelA} vs ${this.debateModelB}\nRounds: ${rounds}\n\nSee [[Resolution: ${topic.slice(0, 30)}]] for the final truth document.`;
+            topicNode.content = `# Debate: ${topic}\n\nDebaters: ${this.debaters.map(d => `${d.emoji} ${d.letter}: ${d.model}`).join(', ')}\nRounds: ${rounds}\n\nSee [[Resolution: ${topic.slice(0, 30)}]] for the final truth document.`;
             this.renderer.markDirty();
 
-            statusEl.textContent = '✓ DEBATE RESOLVED — Click any node to inspect';
+            statusEl.textContent = '\u2713 DEBATE RESOLVED \u2014 Click any node to inspect';
             this._status('[DEBATE RESOLVED]', 'success');
 
         } catch (err) {
             topicNode._loading = false;
-            statusEl.textContent = `✗ ERROR: ${err.message}`;
+            statusEl.textContent = `\u2717 ERROR: ${err.message}`;
             this._status('[DEBATE ERROR: ' + err.message + ']');
             console.error('Debate error:', err);
         }

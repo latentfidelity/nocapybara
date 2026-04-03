@@ -20,6 +20,11 @@ class GraphRenderer {
         this._raf = null;
         this._dirty = true;
 
+        // Physics
+        this.physicsEnabled = true;
+        this._physicsStrength = 0.8; // 0-1
+        this._draggedNode = null; // skip physics on dragged node
+
         this.resize();
         window.addEventListener('resize', () => this.resize());
     }
@@ -42,6 +47,7 @@ class GraphRenderer {
         const loop = () => {
             this._raf = requestAnimationFrame(loop);
             this._animateCamera();
+            if (this.physicsEnabled) this._simulateForces();
             if (this._dirty) {
                 this._render();
                 this._dirty = false;
@@ -502,6 +508,84 @@ class GraphRenderer {
         }
 
         ctx.restore();
+    }
+
+    // Force-directed layout simulation
+    _simulateForces() {
+        const nodes = [...this.model.nodes.values()];
+        if (nodes.length < 2) return;
+
+        const s = this._physicsStrength;
+        const repulsion = 8000 * s;
+        const springK = 0.005 * s;
+        const springLen = 200;
+        const centerK = 0.001 * s;
+        const damping = 0.85;
+        const minMove = 0.01;
+
+        let totalMovement = 0;
+
+        // Init velocity if needed
+        nodes.forEach(n => {
+            if (!n._vx) { n._vx = 0; n._vy = 0; }
+        });
+
+        // Repulsion between all node pairs
+        for (let i = 0; i < nodes.length; i++) {
+            for (let j = i + 1; j < nodes.length; j++) {
+                const a = nodes[i], b = nodes[j];
+                let dx = b.x - a.x, dy = b.y - a.y;
+                let dist = Math.hypot(dx, dy) || 1;
+                if (dist > 600) continue; // Skip far nodes
+                const force = repulsion / (dist * dist);
+                const fx = (dx / dist) * force;
+                const fy = (dy / dist) * force;
+                if (this._draggedNode !== a) { a._vx -= fx; a._vy -= fy; }
+                if (this._draggedNode !== b) { b._vx += fx; b._vy += fy; }
+            }
+        }
+
+        // Spring attraction along edges
+        this.model.edges.forEach(e => {
+            const a = this.model.nodes.get(e.from);
+            const b = this.model.nodes.get(e.to);
+            if (!a || !b) return;
+            let dx = b.x - a.x, dy = b.y - a.y;
+            let dist = Math.hypot(dx, dy) || 1;
+            const displacement = dist - springLen;
+            const force = springK * displacement;
+            const fx = (dx / dist) * force;
+            const fy = (dy / dist) * force;
+            if (this._draggedNode !== a) { a._vx += fx; a._vy += fy; }
+            if (this._draggedNode !== b) { b._vx -= fx; b._vy -= fy; }
+        });
+
+        // Center gravity
+        const cx = this.cam.x, cy = this.cam.y;
+        nodes.forEach(n => {
+            if (this._draggedNode === n) return;
+            n._vx -= (n.x - cx) * centerK;
+            n._vy -= (n.y - cy) * centerK;
+        });
+
+        // Apply velocity + damping
+        nodes.forEach(n => {
+            if (this._draggedNode === n) return;
+            n._vx *= damping;
+            n._vy *= damping;
+            const move = Math.hypot(n._vx, n._vy);
+            if (move > minMove) {
+                // Cap velocity
+                if (move > 10) { n._vx *= 10/move; n._vy *= 10/move; }
+                n.x += n._vx;
+                n.y += n._vy;
+                totalMovement += move;
+            }
+        });
+
+        if (totalMovement > 0.1) {
+            this.markDirty();
+        }
     }
 
     // Color helpers for gradient pills

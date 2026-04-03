@@ -175,23 +175,26 @@
                             </button>
                         </div>
                         <div id="debate-controls" class="toolbar-group hidden">
-                            <button id="model-a-btn" class="thought-tool debate-model-btn" title="Model A">
-                                <span id="model-a-label">🔴 A: 2.5 PRO</span>
-                            </button>
-                            <span class="debate-vs">VS</span>
-                            <button id="model-b-btn" class="thought-tool debate-model-btn" title="Model B">
-                                <span id="model-b-label">🔵 B: 3 PRO</span>
-                            </button>
+                            <div id="debater-slots" class="debater-slots">
+                                <button class="thought-tool debate-model-btn debater-slot" data-slot="0" title="Debater 1">
+                                    <span class="debater-label" id="debater-label-0">&#x1F534; A: 2.5 PRO</span>
+                                </button>
+                                <span class="debate-vs">VS</span>
+                                <button class="thought-tool debate-model-btn debater-slot" data-slot="1" title="Debater 2">
+                                    <span class="debater-label" id="debater-label-1">&#x1F535; B: 3 PRO</span>
+                                </button>
+                            </div>
+                            <button id="add-debater-btn" class="thought-tool" title="Add debater (max 5)">+</button>
                             <select id="debate-rounds" class="debate-rounds" title="Rounds">
                                 <option value="3">3 ROUNDS</option>
                                 <option value="5" selected>5 ROUNDS</option>
                                 <option value="7">7 ROUNDS</option>
                             </select>
                             <select id="debate-mode" class="debate-rounds" title="Debate Mode">
-                                <option value="standard">⚔ STANDARD</option>
-                                <option value="steelman">🛡 STEEL MAN</option>
-                                <option value="redteam">🔴 RED TEAM</option>
-                                <option value="socratic">🏛 SOCRATIC</option>
+                                <option value="standard">&#x2694; STANDARD</option>
+                                <option value="steelman">&#x1F6E1; STEEL MAN</option>
+                                <option value="redteam">&#x1F534; RED TEAM</option>
+                                <option value="socratic">&#x1F3DB; SOCRATIC</option>
                             </select>
                         </div>
                     </div>
