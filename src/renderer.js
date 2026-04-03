@@ -357,6 +357,18 @@ class GraphRenderer {
         ctx.stroke();
         ctx.restore();
 
+        // Type accent — subtle colored arc at bottom of circle
+        if (!isSelected) {
+            ctx.save();
+            ctx.strokeStyle = typeDef.color;
+            ctx.globalAlpha = isHovered ? 0.6 : 0.3;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(node.x, node.y, radius, Math.PI * 0.6, Math.PI * 0.4);
+            ctx.stroke();
+            ctx.restore();
+        }
+
         // Page indicator (small dot inside circle for nodes with content)
         if (hasContent) {
             ctx.save();
