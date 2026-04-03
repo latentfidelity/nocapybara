@@ -573,6 +573,66 @@ html, body {
     letter-spacing: 0.04em;
 }
 
+.thought-toolbar {
+    display: flex;
+    align-items: center;
+    padding: 2px var(--space-sm);
+    padding-bottom: 6px;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+}
+
+.thought-tool {
+    background: transparent;
+    border: none;
+    color: var(--text-disabled);
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.06em;
+    cursor: pointer;
+    padding: 2px 6px;
+    transition: color var(--speed-fast) var(--ease);
+}
+
+.thought-tool:hover {
+    color: var(--text-secondary);
+}
+
+.thought-popup {
+    position: absolute;
+    bottom: 100%;
+    left: 0;
+    margin-bottom: 4px;
+    min-width: 140px;
+    background: var(--surface);
+    border: 1px solid var(--border-visible);
+    padding: 4px;
+    z-index: 210;
+}
+
+.thought-popup.hidden {
+    display: none;
+}
+
+.thought-popup-item {
+    padding: 6px 10px;
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: color var(--speed-fast) var(--ease), background var(--speed-fast) var(--ease);
+}
+
+.thought-popup-item:hover {
+    color: var(--text-primary);
+    background: rgba(255,255,255,0.04);
+}
+
+.thought-popup-item.active {
+    color: var(--text-primary);
+}
+
 .thought-submit {
     width: 28px;
     height: 28px;
@@ -630,7 +690,7 @@ html, body {
 /* ===================== CONTEXT MENUS ===================== */
 
 .context-menu {
-    position: absolute;
+    position: fixed;
     min-width: 160px;
     background: var(--surface);
     border: 1px solid var(--border-visible);
@@ -698,6 +758,25 @@ html, body {
     display: flex;
     flex-direction: column;
     gap: var(--space-md);
+}
+
+.btn-view-page {
+    width: 100%;
+    padding: 10px;
+    background: transparent;
+    border: 1px solid var(--border-visible);
+    color: var(--text-secondary);
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    cursor: pointer;
+    transition: all var(--speed-fast) var(--ease);
+}
+
+.btn-view-page:hover {
+    background: rgba(255,255,255,0.04);
+    color: var(--text-primary);
+    border-color: var(--text-secondary);
 }
 
 .inspector-panel.hidden {
@@ -819,6 +898,42 @@ html, body {
     line-height: 1.7;
     white-space: pre-wrap;
     word-wrap: break-word;
+}
+
+.content-actions {
+    display: flex;
+    gap: 2px;
+    align-items: center;
+}
+
+.content-actions .btn-ghost {
+    padding: 2px 6px;
+    font-size: 11px;
+}
+
+.content-status {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    color: var(--text-disabled);
+    min-height: 0;
+    transition: all var(--speed-fast) var(--ease);
+}
+
+.content-status:empty {
+    display: none;
+}
+
+.content-status.loading {
+    color: var(--text-secondary);
+    padding: 4px 0;
+}
+
+.content-history-bar {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding-top: 4px;
 }
 
 .field-actions {
@@ -1074,6 +1189,79 @@ html, body {
 .help-btn:hover {
     border-color: var(--text-secondary);
     color: var(--text-primary);
+}
+
+/* ===================== PAGE VIEW ===================== */
+
+.page-view-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.85);
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.page-view-overlay.hidden {
+    display: none;
+}
+
+.page-view {
+    width: min(720px, 90%);
+    max-height: 85%;
+    background: var(--bg);
+    border: 1px solid var(--border-visible);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.page-view-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    padding: var(--space-md) var(--space-lg);
+    border-bottom: 1px solid var(--border);
+}
+
+.page-view-title {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 18px;
+    font-weight: 500;
+    color: var(--text-primary);
+    flex: 1;
+}
+
+.page-view-type {
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.08em;
+    color: var(--text-disabled);
+    text-transform: uppercase;
+}
+
+.page-view-desc {
+    padding: var(--space-md) var(--space-lg);
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 13px;
+    color: var(--text-secondary);
+    border-bottom: 1px solid var(--border);
+}
+
+.page-view-desc:empty {
+    display: none;
+}
+
+.page-view-content {
+    padding: var(--space-lg);
+    overflow-y: auto;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 14px;
+    line-height: 1.8;
+    color: var(--text-secondary);
+    white-space: pre-wrap;
+    word-wrap: break-word;
 }
 
 .help-overlay {

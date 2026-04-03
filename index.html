@@ -109,6 +109,29 @@
                         <textarea id="thought-input" placeholder="Stream of consciousness..." rows="1"></textarea>
                         <button id="thought-submit" class="thought-submit">↵</button>
                     </div>
+                    <div class="thought-toolbar">
+                        <button id="model-btn" class="thought-tool" title="Select model">
+                            <span id="model-label">⚡ 2.5 FLASH</span>
+                        </button>
+                    </div>
+                    <!-- Model popup menu -->
+                    <div id="model-menu" class="thought-popup hidden">
+                        <div class="thought-popup-item" data-model="gemini-2.5-flash">⚡ 2.5 FLASH</div>
+                        <div class="thought-popup-item" data-model="gemini-2.5-flash-lite">◇ 2.5 LITE</div>
+                        <div class="thought-popup-item" data-model="gemini-2.0-flash-001">○ 2.0 FLASH</div>
+                    </div>
+                </div>
+                <!-- Page Viewer Overlay -->
+                <div id="page-view-overlay" class="page-view-overlay hidden">
+                    <div class="page-view">
+                        <div class="page-view-header">
+                            <span id="page-view-title" class="page-view-title"></span>
+                            <span id="page-view-type" class="page-view-type"></span>
+                            <button id="page-view-close" class="panel-close">×</button>
+                        </div>
+                        <div id="page-view-desc" class="page-view-desc"></div>
+                        <div id="page-view-content" class="page-view-content"></div>
+                    </div>
                 </div>
                 <div id="help-overlay" class="help-overlay hidden">
                     <div class="help-panel">
@@ -172,6 +195,7 @@
                         <p>[ NO SELECTION ]</p>
                     </div>
                     <div id="inspector-node" class="inspector-panel hidden">
+                        <button id="btn-view-page" class="btn-view-page">VIEW PAGE</button>
                         <div class="field">
                             <label for="node-label">LABEL</label>
                             <input type="text" id="node-label" placeholder="Node label...">
@@ -192,8 +216,19 @@
                             <textarea id="node-description" rows="2" placeholder="Brief description..."></textarea>
                         </div>
                         <div class="field" id="content-field">
-                            <label for="node-content">PAGE CONTENT</label>
+                            <div class="field-section-header">
+                                <label for="node-content">PAGE CONTENT</label>
+                                <div class="content-actions">
+                                    <button id="btn-undo-content" class="btn-ghost" title="Undo">↩</button>
+                                    <button id="btn-redo-content" class="btn-ghost" title="Redo">↪</button>
+                                    <button id="btn-refresh-content" class="btn-ghost" title="AI Refresh">↻ REFRESH</button>
+                                </div>
+                            </div>
+                            <div id="content-status" class="content-status"></div>
                             <textarea id="node-content" rows="12" placeholder="Write page content..."></textarea>
+                            <div id="content-history-bar" class="content-history-bar">
+                                <span id="content-history-label" class="stat">STATE 1/1</span>
+                            </div>
                         </div>
                         <div class="field">
                             <label for="node-layer-select">LAYER</label>

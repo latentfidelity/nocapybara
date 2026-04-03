@@ -16,6 +16,9 @@ class ReflectApp {
         this.dragStart = { x: 0, y: 0 };
         this.lastMouse = { x: 0, y: 0 };
 
+        // Content state tree: nodeId -> { states: [string], index: number }
+        this.contentHistory = new Map();
+
         this._bindCanvas();
         this._bindUI();
         this._bindKeyboard();
@@ -59,7 +62,7 @@ class ReflectApp {
 
         // Click outside to deselect
         document.addEventListener('mousedown', e => {
-            if (!e.target.closest('.context-menu')) this._hideAllContextMenus();
+            if (e.button !== 2 && !e.target.closest('.context-menu')) this._hideAllContextMenus();
         });
     }
 
@@ -71,7 +74,7 @@ class ReflectApp {
     _onMouseDown(e) {
         const pos = this._getCanvasPos(e);
         this.lastMouse = pos;
-        this._hideAllContextMenus();
+        if (e.button !== 2) this._hideAllContextMenus();
 
         if (e.button === 1 || (e.button === 0 && e.altKey)) {
             this.dragState = 'pan';
@@ -216,8 +219,8 @@ class ReflectApp {
 
     _onWheel(e) {
         e.preventDefault();
-        // Two-finger pan (trackpad) vs pinch zoom
-        if (e.ctrlKey) {
+        // Two-finger pan (trackpad) vs pinch/cmd zoom
+        if (e.ctrlKey || e.metaKey) {
             // Pinch zoom
             const zoomFactor = e.deltaY > 0 ? 0.97 : 1.03;
             const pos = this._getCanvasPos(e);
@@ -230,7 +233,7 @@ class ReflectApp {
             this.renderer.targetCam.y = this.renderer.cam.y;
         } else {
             // Two-finger scroll = pan
-            this.renderer.pan(e.deltaX / this.renderer.cam.zoom, e.deltaY / this.renderer.cam.zoom);
+            this.renderer.pan(-e.deltaX / this.renderer.cam.zoom, -e.deltaY / this.renderer.cam.zoom);
         }
         this.renderer.markDirty();
         document.getElementById('zoom-level').textContent = Math.round(this.renderer.cam.zoom * 100) + '%';
@@ -377,9 +380,42 @@ class ReflectApp {
         labelInput.oninput = update;
         typeSelect.onchange = update;
         descInput.oninput = update;
-        contentInput.oninput = () => { node.content = contentInput.value; };
         notesInput.oninput = update;
         layerSelect.onchange = update;
+
+        // Content history
+        this._initContentHistory(node);
+        this._updateHistoryUI(node);
+
+        let contentDebounce = null;
+        contentInput.oninput = () => {
+            node.content = contentInput.value;
+            clearTimeout(contentDebounce);
+            contentDebounce = setTimeout(() => {
+                this._pushContentState(node, contentInput.value);
+            }, 1000);
+        };
+
+        // Undo / Redo / Refresh buttons
+        document.getElementById('btn-undo-content').onclick = () => {
+            const text = this._undoContent(node);
+            if (text !== null) {
+                node.content = text;
+                contentInput.value = text;
+                this.renderer.markDirty();
+            }
+        };
+        document.getElementById('btn-redo-content').onclick = () => {
+            const text = this._redoContent(node);
+            if (text !== null) {
+                node.content = text;
+                contentInput.value = text;
+                this.renderer.markDirty();
+            }
+        };
+        document.getElementById('btn-refresh-content').onclick = () => {
+            this._aiRefreshContent(node);
+        };
     }
 
     _renderCustomProperties(node) {
@@ -648,6 +684,37 @@ class ReflectApp {
 
         thoughtSubmit.addEventListener('click', () => this._captureThought());
 
+        // Model selector popup
+        this.selectedModel = 'gemini-2.5-flash';
+        const modelMenu = document.getElementById('model-menu');
+        const modelLabel = document.getElementById('model-label');
+
+        document.getElementById('model-btn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            modelMenu.classList.toggle('hidden');
+        });
+
+        document.querySelectorAll('.thought-popup-item').forEach(item => {
+            item.addEventListener('click', () => {
+                this.selectedModel = item.dataset.model;
+                modelLabel.textContent = item.textContent;
+                // Mark active
+                document.querySelectorAll('.thought-popup-item').forEach(i => i.classList.remove('active'));
+                item.classList.add('active');
+                modelMenu.classList.add('hidden');
+            });
+        });
+
+        // Set initial active
+        document.querySelector('.thought-popup-item[data-model="gemini-2.5-flash"]').classList.add('active');
+
+        // Close popup on outside click
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('#thought-bar')) {
+                modelMenu.classList.add('hidden');
+            }
+        });
+
         // Context menu actions
         document.querySelectorAll('.context-menu-item').forEach(item => {
             item.addEventListener('click', () => this._handleContextAction(item.dataset.action));
@@ -659,6 +726,19 @@ class ReflectApp {
         });
         document.getElementById('help-close').addEventListener('click', () => {
             document.getElementById('help-overlay').classList.add('hidden');
+        });
+
+        // View Page
+        document.getElementById('btn-view-page').addEventListener('click', () => {
+            this._openPageView();
+        });
+        document.getElementById('page-view-close').addEventListener('click', () => {
+            document.getElementById('page-view-overlay').classList.add('hidden');
+        });
+        document.getElementById('page-view-overlay').addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) {
+                e.currentTarget.classList.add('hidden');
+            }
         });
 
         // Modal
@@ -855,21 +935,241 @@ class ReflectApp {
 
     async _aiGenerateTitle(node, text) {
         try {
-            const prompt = `Given this stream-of-consciousness thought, generate a concise 3-6 word title that captures its core idea. Return ONLY the title, nothing else.\n\nThought: "${text}"`;
-            const result = await window.electronAPI.geminiRequest(prompt);
+            const prompt = `You are a knowledge structuring assistant. Given a stream-of-consciousness thought, populate ALL fields for a knowledge node.
+
+Return your response in EXACTLY this format (every field required):
+TITLE: <concise 3-6 word title>
+TYPE: <one of: concept, entity, rule, state, event, property>
+DESCRIPTION: <1-2 sentence summary>
+PROPERTIES: <key=value pairs, comma separated, e.g. domain=physics, complexity=high, related_to=quantum mechanics>
+---
+<expanded content: well-structured page with key points, implications, connections to explore. 3-8 paragraphs, plain text, no markdown headers. Be specific and factual.>
+
+Type definitions:
+- concept: abstract ideas, theories, principles
+- entity: concrete things, people, places, systems, tools
+- rule: laws, constraints, if-then relationships, guidelines
+- state: conditions, statuses, configurations
+- event: occurrences, actions, triggers
+- property: attributes, measurements, characteristics
+
+Thought: "${text.replace(/"/g, '\\"')}"`;
+
+            const result = await window.electronAPI.geminiRequest(prompt, true, this.selectedModel);
             if (result.text && !result.error) {
-                const title = result.text.trim().replace(/^["']|["']$/g, '');
-                if (title && title.length < 80) {
-                    node.label = title;
-                    this.renderer.markDirty();
-                    this._renderPagesTree();
-                    if (this.selectedNodes.has(node.id)) {
-                        const labelInput = document.getElementById('node-label');
-                        if (labelInput) labelInput.value = title;
+                const response = result.text.trim();
+                const titleMatch = response.match(/^TITLE:\s*(.+)/m);
+                const typeMatch = response.match(/^TYPE:\s*(.+)/m);
+                const descMatch = response.match(/^DESCRIPTION:\s*(.+)/m);
+                const propsMatch = response.match(/^PROPERTIES:\s*(.+)/m);
+                const separatorIdx = response.indexOf('---');
+
+                // Title
+                if (titleMatch) {
+                    const title = titleMatch[1].trim().replace(/^["']|["']$/g, '');
+                    if (title && title.length < 80) {
+                        node.label = title;
+                        if (this.selectedNodes.has(node.id)) {
+                            const el = document.getElementById('node-label');
+                            if (el) el.value = title;
+                        }
                     }
                 }
+
+                // Type
+                if (typeMatch) {
+                    const type = typeMatch[1].trim().toLowerCase();
+                    const validTypes = ['concept', 'entity', 'rule', 'state', 'event', 'property'];
+                    if (validTypes.includes(type)) {
+                        node.type = type;
+                        if (this.selectedNodes.has(node.id)) {
+                            const el = document.getElementById('node-type-select');
+                            if (el) el.value = type;
+                        }
+                    }
+                }
+
+                // Description
+                if (descMatch) {
+                    const desc = descMatch[1].trim();
+                    if (desc) {
+                        node.description = desc;
+                        if (this.selectedNodes.has(node.id)) {
+                            const el = document.getElementById('node-description');
+                            if (el) el.value = desc;
+                        }
+                    }
+                }
+
+                // Properties
+                if (propsMatch) {
+                    const pairs = propsMatch[1].split(',').map(p => p.trim()).filter(Boolean);
+                    for (const pair of pairs) {
+                        const [key, ...valParts] = pair.split('=');
+                        const val = valParts.join('=').trim();
+                        if (key && val) {
+                            node.properties.push({ key: key.trim(), value: val });
+                        }
+                    }
+                    if (this.selectedNodes.has(node.id)) {
+                        this._renderCustomProperties(node);
+                    }
+                }
+
+                // Content
+                if (separatorIdx !== -1) {
+                    const expanded = response.slice(separatorIdx + 3).trim();
+                    if (expanded) {
+                        node.content = text + '\n\n— — —\n\n' + expanded;
+                        if (this.selectedNodes.has(node.id)) {
+                            const el = document.getElementById('node-content');
+                            if (el) el.value = node.content;
+                        }
+                        this._status('[THOUGHT EXPANDED]', 'success');
+                    }
+                }
+
+                this.renderer.markDirty();
+                this._renderPagesTree();
             }
-        } catch (e) { /* silent fail */ }
+        } catch (e) { this._status('[AI ERROR: ' + e.message + ']', 'error'); }
+    }
+
+    // ======================== CONTENT STATE TREE ========================
+
+    _initContentHistory(node) {
+        if (!this.contentHistory.has(node.id)) {
+            this.contentHistory.set(node.id, {
+                states: [node.content || ''],
+                index: 0
+            });
+        }
+    }
+
+    _pushContentState(node, content) {
+        const h = this.contentHistory.get(node.id);
+        if (!h) return;
+        // Don't push duplicate
+        if (h.states[h.index] === content) return;
+        // Truncate any redo states
+        h.states = h.states.slice(0, h.index + 1);
+        h.states.push(content);
+        h.index = h.states.length - 1;
+        // Cap at 50 states
+        if (h.states.length > 50) {
+            h.states.shift();
+            h.index--;
+        }
+        this._updateHistoryUI(node);
+    }
+
+    _undoContent(node) {
+        const h = this.contentHistory.get(node.id);
+        if (!h || h.index <= 0) return null;
+        h.index--;
+        this._updateHistoryUI(node);
+        return h.states[h.index];
+    }
+
+    _redoContent(node) {
+        const h = this.contentHistory.get(node.id);
+        if (!h || h.index >= h.states.length - 1) return null;
+        h.index++;
+        this._updateHistoryUI(node);
+        return h.states[h.index];
+    }
+
+    _updateHistoryUI(node) {
+        const h = this.contentHistory.get(node.id);
+        const label = document.getElementById('content-history-label');
+        if (h && label) {
+            label.textContent = `STATE ${h.index + 1}/${h.states.length}`;
+        }
+        const undoBtn = document.getElementById('btn-undo-content');
+        const redoBtn = document.getElementById('btn-redo-content');
+        if (undoBtn) undoBtn.style.opacity = (h && h.index > 0) ? '1' : '0.3';
+        if (redoBtn) redoBtn.style.opacity = (h && h.index < h.states.length - 1) ? '1' : '0.3';
+    }
+
+    // ======================== AI REFRESH ========================
+
+    async _aiRefreshContent(node) {
+        if (!window.electronAPI || !window.electronAPI.geminiStream) {
+            this._status('[ERROR: NO API KEY]', 'error');
+            return;
+        }
+
+        const statusEl = document.getElementById('content-status');
+        const contentInput = document.getElementById('node-content');
+        statusEl.textContent = '[STREAMING...]';
+        statusEl.className = 'content-status loading';
+
+        const existingContent = node.content || '';
+        const prompt = `You are a research assistant. The user has a concept node titled "${node.label}" with type "${node.type}".
+${node.description ? `Description: "${node.description}"` : ''}
+${existingContent ? `Current content:\n${existingContent.slice(0, 2000)}` : 'No content yet.'}
+
+Research and provide the NEWEST, most relevant and up-to-date information about this concept. Include:
+- Key definitions or clarifications
+- Recent developments or current state of knowledge
+- Important connections to related concepts
+- Practical implications or applications
+- Open questions worth exploring
+
+Write concise, substantive paragraphs. Plain text only, no markdown headers. Be specific and factual.`;
+
+        const prefix = existingContent ? existingContent + '\n\n— REFRESHED —\n\n' : '';
+        let streamed = '';
+
+        // Set up initial content
+        if (contentInput && this.selectedNodes.has(node.id)) {
+            contentInput.value = prefix;
+        }
+
+        window.electronAPI.removeStreamListeners();
+
+        window.electronAPI.onStreamChunk((text) => {
+            streamed += text;
+            node.content = prefix + streamed;
+            if (contentInput && this.selectedNodes.has(node.id)) {
+                contentInput.value = node.content;
+                contentInput.scrollTop = contentInput.scrollHeight;
+            }
+            this.renderer.markDirty();
+        });
+
+        window.electronAPI.onStreamDone(() => {
+            this._pushContentState(node, node.content);
+            statusEl.textContent = '[REFRESHED]';
+            statusEl.className = 'content-status';
+            setTimeout(() => { statusEl.textContent = ''; }, 2000);
+            this._status('[CONTENT REFRESHED]', 'success');
+            window.electronAPI.removeStreamListeners();
+        });
+
+        window.electronAPI.onStreamError((err) => {
+            statusEl.textContent = '[ERROR: ' + err + ']';
+            statusEl.className = 'content-status';
+            window.electronAPI.removeStreamListeners();
+        });
+
+        window.electronAPI.geminiStream(prompt, true, this.selectedModel);
+    }
+
+    // ======================== PAGE VIEW ========================
+
+    _openPageView() {
+        const nodeId = [...this.selectedNodes][0];
+        if (!nodeId) return;
+        const node = this.model.nodes.get(nodeId);
+        if (!node) return;
+
+        const typeDef = NexusModel.NODE_TYPES[node.type] || NexusModel.NODE_TYPES.concept;
+        document.getElementById('page-view-title').textContent = node.label;
+        document.getElementById('page-view-type').textContent = typeDef.label;
+        document.getElementById('page-view-desc').textContent = node.description || '';
+        document.getElementById('page-view-content').textContent = node.content || '[ No content ]';
+        document.getElementById('page-view-overlay').classList.remove('hidden');
     }
 
     // ======================== HELPERS ========================
