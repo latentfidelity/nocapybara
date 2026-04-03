@@ -195,10 +195,6 @@ class ReflectApp {
             } else if (!e.ctrlKey && !e.metaKey && !node.selected) {
                 this._clearSelection();
                 this._selectNode(node, true);
-            } else if (node.selected && this.selectedNodes.size === 1) {
-                // Re-clicking a selected node → show inline branch input
-                this._showBranchInput(node);
-                return;
             } else {
                 this._selectNode(node, true);
             }
@@ -1311,6 +1307,13 @@ class ReflectApp {
                     this._openPageView();
                 }
                 break;
+            case 'branch-node':
+                if (this._ctxTarget) {
+                    this._clearSelection();
+                    this._selectNode(this._ctxTarget);
+                    this._showBranchInput();
+                }
+                break;
             case 'template-concept':
                 if (this._ctxTarget) this._applyTemplate(this._ctxTarget, 'concept');
                 break;
@@ -2370,10 +2373,11 @@ Write concise, substantive paragraphs. Plain text only, no markdown headers. Be 
                     addToTranscript('JUDGE', round, judgeModel, recapText, '&#x2696;&#xFE0F;');
 
                     const recapY = wp.y + round * 140 + 70;
-                    const recapNode = this.model.addNode('concept', wp.x, recapY, `R${round} Recap`);
+                    const recapNode = this.model.addNode('synthesis', wp.x, recapY, `R${round} Recap`);
                     recapNode.description = `⚖️ JUDGE: ${judgeModel} — Round ${round} Recap`;
                     recapNode.content = recapText;
-                    recapNode.properties = { side: 'JUDGE', round: round.toString(), model: judgeModel };
+                    recapNode.properties = { side: 'JUDGE', round: round.toString(), model: judgeModel, _debaterColor: '#8ED1D1' };
+                    recapNode._debaterColor = '#8ED1D1';
                     recapNode.source = { type: 'debate-recap', model: judgeModel, timestamp: Date.now() };
 
                     // Connect all debater nodes from this round to the recap node
