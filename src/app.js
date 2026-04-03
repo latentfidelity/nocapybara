@@ -102,7 +102,8 @@ class ReflectApp {
 
         const node = this.renderer.nodeAtScreen(pos.x, pos.y);
 
-        if (e.shiftKey && node) {
+        // Alt+drag from node → connect
+        if (e.altKey && node) {
             this.dragState = 'connect';
             this.connectFromNode = node;
             this.renderer.pendingConnection = { fromX: node.x, fromY: node.y, toX: node.x, toY: node.y };
@@ -110,10 +111,22 @@ class ReflectApp {
         }
 
         if (node) {
-            if (!e.ctrlKey && !e.metaKey && !node.selected) {
+            if (e.shiftKey) {
+                // Shift+click: toggle node in selection
+                if (node.selected) {
+                    this.selectedNodes.delete(node.id);
+                    node.selected = false;
+                } else {
+                    this._selectNode(node, true);
+                }
+                this.renderer.markDirty();
+                this._updateInspector();
+            } else if (!e.ctrlKey && !e.metaKey && !node.selected) {
                 this._clearSelection();
+                this._selectNode(node, true);
+            } else {
+                this._selectNode(node, true);
             }
-            this._selectNode(node, true);
             this.dragState = 'move';
             this.dragStart = { x: pos.x, y: pos.y };
             this.canvas.style.cursor = 'move';
@@ -127,10 +140,18 @@ class ReflectApp {
             return;
         }
 
-        if (!e.ctrlKey && !e.metaKey) this._clearSelection();
-        this.dragState = 'pan';
-        this.canvas.style.cursor = 'grabbing';
-        this.dragStart = { x: pos.x, y: pos.y };
+        if (e.shiftKey) {
+            // Shift+drag on empty → selection box
+            if (!e.ctrlKey && !e.metaKey) this._clearSelection();
+            this.dragState = 'select';
+            this.dragStart = { x: pos.x, y: pos.y };
+            this.canvas.style.cursor = 'crosshair';
+        } else {
+            if (!e.ctrlKey && !e.metaKey) this._clearSelection();
+            this.dragState = 'pan';
+            this.canvas.style.cursor = 'grabbing';
+            this.dragStart = { x: pos.x, y: pos.y };
+        }
     }
 
     _onMouseMove(e) {

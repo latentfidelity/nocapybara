@@ -1928,3 +1928,18 @@ html, body {
     letter-spacing: 0.04em;
     color: var(--text-disabled);
 }
+
+.help-section {
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    color: var(--text-secondary);
+    padding-top: 8px;
+    border-top: 1px solid var(--border);
+    grid-column: 1;
+}
+
+.help-section + div {
+    border-top: 1px solid var(--border);
+    padding-top: 8px;
+}
