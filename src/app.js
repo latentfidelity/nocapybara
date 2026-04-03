@@ -84,10 +84,9 @@ class ReflectApp {
 
     _bindCanvas() {
         const c = this.canvas;
-        c.addEventListener('pointerdown', e => this._onPointerDown(e));
-        c.addEventListener('pointermove', e => this._onPointerMove(e));
-        c.addEventListener('pointerup', e => this._onPointerUp(e));
-        c.addEventListener('pointercancel', e => this._onPointerUp(e));
+        c.addEventListener('mousedown', e => this._onMouseDown(e));
+        window.addEventListener('mousemove', e => this._onMouseMove(e));
+        window.addEventListener('mouseup', e => this._onMouseUp(e));
         c.addEventListener('dblclick', e => this._onDoubleClick(e));
         c.addEventListener('wheel', e => this._onWheel(e), { passive: false });
         c.addEventListener('contextmenu', e => this._onContextMenu(e));
@@ -107,11 +106,9 @@ class ReflectApp {
         return { x: e.clientX - rect.left, y: e.clientY - rect.top };
     }
 
-    _onPointerDown(e) {
+    _onMouseDown(e) {
         this.renderer.selectionBox = null;
-        if (e.target === this.canvas) {
-            try { this.canvas.setPointerCapture(e.pointerId); } catch (_) {}
-        }
+        if (e.target !== this.canvas) return; // Ignore down events outside canvas
         if (e.button === 0) e.preventDefault(); // Prevent browser native drag on left-click
         const pos = this._getCanvasPos(e);
         this.lastMouse = pos;
@@ -179,12 +176,12 @@ class ReflectApp {
         }
     }
 
-    _onPointerMove(e) {
+    _onMouseMove(e) {
         const pos = this._getCanvasPos(e);
 
-        // Failsafe: if button was released but pointerup was missed
+        // Failsafe: if button was released but mouseup was missed
         if (this.dragState && e.buttons === 0) {
-            this._onPointerUp(e);
+            this._onMouseUp(e);
             return;
         }
 
@@ -235,9 +232,8 @@ class ReflectApp {
         this.lastMouse = pos;
     }
 
-    _onPointerUp(e) {
+    _onMouseUp(e) {
         if (!this.dragState) return;
-        try { this.canvas.releasePointerCapture(e.pointerId); } catch (_) {}
         const pos = this._getCanvasPos(e);
 
         if (this.dragState === 'connect') {
