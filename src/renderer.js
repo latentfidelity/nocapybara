@@ -216,6 +216,7 @@ class GraphRenderer {
         this.model.nodes.forEach(node => {
             const layer = this.model.layers.find(l => l.id === node.layer);
             if (layer && !layer.visible) return;
+            if (this.typeFilter && !this.typeFilter.has(node.type)) return;
             this._drawNode(ctx, node);
         });
 
