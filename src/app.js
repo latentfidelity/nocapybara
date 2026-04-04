@@ -1558,8 +1558,18 @@ Thought: "${text.replace(/"/g, '\\"')}"`;
         }, 400);
         statusEl.textContent = 'Thinking.';
 
+        const reopenBtn = document.getElementById('debate-reopen');
+        reopenBtn.classList.add('hidden');
+
         document.getElementById('debate-modal-close').onclick = () => {
             overlay.classList.add('hidden');
+            if (transcript.children.length > 0) reopenBtn.classList.remove('hidden');
+        };
+
+        reopenBtn.onclick = () => {
+            overlay.classList.remove('hidden');
+            reopenBtn.classList.add('hidden');
+            transcript.scrollTop = transcript.scrollHeight;
         };
 
         const msg = document.createElement('div');
@@ -2237,7 +2247,20 @@ Write concise, substantive paragraphs. Plain text only, no markdown headers. Be 
         roundIndicator.textContent = `${numDebaters} DEBATERS \u00B7 ${rounds} ROUNDS`;
         statusEl.textContent = 'Initializing...';
 
-        document.getElementById('debate-modal-close').onclick = () => overlay.classList.add('hidden');
+        const reopenBtn = document.getElementById('debate-reopen');
+        reopenBtn.classList.add('hidden');
+
+        document.getElementById('debate-modal-close').onclick = () => {
+            overlay.classList.add('hidden');
+            // Show resume button if there's transcript content
+            if (transcript.children.length > 0) reopenBtn.classList.remove('hidden');
+        };
+
+        reopenBtn.onclick = () => {
+            overlay.classList.remove('hidden');
+            reopenBtn.classList.add('hidden');
+            transcript.scrollTop = transcript.scrollHeight;
+        };
 
         const uiCallbacks = {
             onTranscriptAdd: (letter, round, model, content, emoji) => {
