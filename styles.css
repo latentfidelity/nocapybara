@@ -927,6 +927,36 @@ html, body {
     100% { content: ''; }
 }
 
+/* Floating re-open debate button */
+.debate-reopen {
+    position: absolute;
+    bottom: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 50;
+    padding: 8px 20px;
+    background: rgba(215, 25, 33, 0.15);
+    border: 1px solid rgba(215, 25, 33, 0.4);
+    border-radius: 20px;
+    color: #E0866E;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    cursor: pointer;
+    transition: all var(--speed-fast) var(--ease);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+}
+
+.debate-reopen:hover {
+    background: rgba(215, 25, 33, 0.3);
+    border-color: rgba(215, 25, 33, 0.6);
+}
+
+.debate-reopen.hidden {
+    display: none;
+}
+
 /* Write mode modal */
 .write-modal-overlay {
     position: fixed;
