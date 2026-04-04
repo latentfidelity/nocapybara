@@ -40,6 +40,7 @@
                 <button id="btn-zoom-fit"></button>
                 <span id="node-count"></span>
                 <span id="edge-count"></span>
+                <span id="epistemic-loss" title="Epistemic Loss (lower = better)"></span>
                 <span id="zoom-level"></span>
             </div>
         </header>
@@ -468,6 +469,9 @@
                     <div class="context-menu-item" data-action="select-all">SELECT ALL</div>
                     <div class="context-menu-item" data-action="fit-view">FIT VIEW</div>
                     <div class="context-menu-item" data-action="toggle-physics">&#x2699; TOGGLE PHYSICS</div>
+                    <div class="context-menu-sep"></div>
+                    <div class="context-menu-item" data-action="scan-vulnerabilities">⚡ SCAN VULNERABILITIES</div>
+                    <div class="context-menu-item" data-action="red-team-auto">🔴 RED TEAM WEAKEST</div>
                 </div>
                 <div id="node-context-menu" class="context-menu hidden">
                     <div class="context-menu-item" data-action="edit-node">EDIT</div>
@@ -481,6 +485,8 @@
                     <div class="context-menu-item" data-action="template-project">⊡ PROJECT TEMPLATE</div>
                     <div class="context-menu-item" data-action="template-meeting">⊡ MEETING TEMPLATE</div>
                     <div class="context-menu-item" data-action="template-research">⊡ RESEARCH TEMPLATE</div>
+                    <div class="context-menu-sep"></div>
+                    <div class="context-menu-item" data-action="red-team-node">🔴 RED TEAM THIS NODE</div>
                     <div class="context-menu-sep"></div>
                     <div class="context-menu-item danger" data-action="delete-node">DELETE</div>
                 </div>
@@ -658,6 +664,7 @@
     <script src="src/ai.js"></script>
     <script src="src/debate.js"></script>
     <script src="src/node-detail-modal.js"></script>
+    <script src="src/epistemics.js"></script>
     <script src="src/app.js"></script>
 </body>
 </html>

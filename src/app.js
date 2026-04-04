@@ -83,13 +83,21 @@ class ReflectApp {
         this.renderer.start();
 
         // Model change listener
-        this.model.onChange(() => {
+        this.model.onChange((type, data) => {
             this.renderer.markDirty();
             this._updateStats();
             this._updateEmptyState();
             this._renderPagesTree();
             this._renderStarredList();
             this._updateHealthIndicator();
+            // Track belief history for new nodes
+            if (type === 'node-added' && window.Epistemics && data) {
+                Epistemics.initHistory(data);
+            }
+            // Init history for all nodes on load
+            if (type === 'loaded' && window.Epistemics) {
+                this.model.nodes.forEach(n => Epistemics.initHistory(n));
+            }
         });
 
         this._updateStats();
@@ -1309,6 +1317,40 @@ class ReflectApp {
             case 'toggle-physics':
                 this.renderer.physicsEnabled = !this.renderer.physicsEnabled;
                 this._status(this.renderer.physicsEnabled ? '[PHYSICS ON]' : '[PHYSICS OFF]');
+                break;
+            case 'scan-vulnerabilities':
+                if (window.Epistemics) {
+                    const vulns = Epistemics.scanVulnerabilities(this.model);
+                    if (vulns.length === 0) {
+                        this._status('[NO VULNERABILITIES DETECTED]', 'success');
+                    } else {
+                        const top = vulns[0];
+                        this._status(`[${vulns.length} VULNERABLE] Top: "${top.label}" (${(top.vulnerability * 100).toFixed(0)}%)`);
+                        // Pan to the most vulnerable node
+                        const node = this.model.nodes.get(top.nodeId);
+                        if (node) { this._clearSelection(); this._selectNode(node); this.renderer.panTo(node.x, node.y); }
+                    }
+                }
+                break;
+            case 'red-team-auto':
+                if (window.Epistemics) {
+                    const target = Epistemics.getMostVulnerable(this.model);
+                    if (!target) {
+                        this._status('[NO VULNERABLE TARGETS FOUND]');
+                    } else {
+                        const node = this.model.nodes.get(target.nodeId);
+                        if (node) {
+                            this._status(`[RED TEAM] Targeting: "${target.label}" — ${target.reasons[0]}`);
+                            this._startDebate(node.label, node);
+                        }
+                    }
+                }
+                break;
+            case 'red-team-node':
+                if (this._ctxTarget) {
+                    this._status(`[RED TEAM] Targeting: "${this._ctxTarget.label}"`);
+                    this._startDebate(this._ctxTarget.label, this._ctxTarget);
+                }
                 break;
         }
     }
@@ -2732,6 +2774,17 @@ Write concise, substantive paragraphs. Plain text only, no markdown headers. Be 
     _updateStats() {
         document.getElementById('node-count').textContent = this.model.nodes.size + ' NODE' + (this.model.nodes.size !== 1 ? 'S' : '');
         document.getElementById('edge-count').textContent = this.model.edges.size + ' EDGE' + (this.model.edges.size !== 1 ? 'S' : '');
+
+        // Epistemic loss
+        if (window.Epistemics && this.model.nodes.size > 0) {
+            const loss = Epistemics.computeLoss(this.model);
+            const lossEl = document.getElementById('epistemic-loss');
+            if (lossEl) {
+                lossEl.textContent = `L: ${loss.total.toFixed(3)}`;
+                // Color code: green < 0.3, yellow < 0.6, red >= 0.6
+                lossEl.style.color = loss.total < 0.3 ? '#6EBF8B' : loss.total < 0.6 ? '#E8C96E' : '#E0866E';
+            }
+        }
     }
 
     _updateEmptyState() {
