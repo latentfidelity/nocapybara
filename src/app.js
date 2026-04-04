@@ -316,12 +316,14 @@ class ReflectApp {
         e.preventDefault();
         // Two-finger pan (trackpad) vs pinch/cmd zoom
         if (e.ctrlKey || e.metaKey) {
-            // Pinch zoom
-            const zoomFactor = e.deltaY > 0 ? 0.97 : 1.03;
+            // Pinch zoom — use deltaY magnitude for smooth, proportional feel
+            const zoomIntensity = 0.01;
+            const zoomFactor = Math.exp(-e.deltaY * zoomIntensity);
             const pos = this._getCanvasPos(e);
             const before = this.renderer.screenToWorld(pos.x, pos.y);
             this.renderer.setZoom(this.renderer.targetCam.zoom * zoomFactor, true);
             const after = this.renderer.screenToWorld(pos.x, pos.y);
+            // Adjust camera so zoom centers on cursor
             this.renderer.cam.x -= (after.x - before.x);
             this.renderer.cam.y -= (after.y - before.y);
             this.renderer.targetCam.x = this.renderer.cam.x;
