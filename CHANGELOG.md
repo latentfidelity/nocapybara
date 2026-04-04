@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.2.0] - 2026-04-04
+### Added
+- **Epistemic Loss Function**: Live `L: x.xxx` score in the status bar. Computed as `L = λ₁·consistency + λ₂·grounding + λ₃·entropy + λ₄·staleness` across the full graph. Color-coded green/yellow/red.
+- **Belief History Versioning**: Every node tracks a temporal log of confidence changes. Detects three pathologies: oscillation (flip-flopping confidence), staleness (no updates in 24h+), and anchoring bias (confidence never moves).
+- **Calibration Tracking**: Brier Score computation with 10-bin calibration curves. Records resolved beliefs against prior confidence for accuracy tracking.
+- **Confidence Management**: `setConfidence()` auto-derives epistemic status from value. `nudgeConfidence()` uses sigmoid damping (harder to move beliefs near extremes).
+- **Bayesian Belief Propagation**: Confidence changes cascade through connected nodes via damped message passing. BFS with decaying influence, respects edge weights, stops at established/falsified nodes.
+- **Expected Information Gain (EIG)**: Ranks every unresolved node by how much resolving it would reduce total graph entropy. `getHighestEIG(model, n)` returns the top-N highest-leverage questions.
+- **Vulnerability Scanner**: Scores nodes by overconfidence × load-bearing × under-testing × oscillation. Identifies the best targets for adversarial challenge.
+- **Red Team Pipeline**: Right-click → `🔴 RED TEAM WEAKEST` auto-identifies the most vulnerable node and launches a debate. `🔴 RED TEAM THIS NODE` targets a specific node. `⚡ SCAN VULNERABILITIES` shows vulnerabilities without debating.
+- **Resume Debate Button**: Floating pill to re-open closed debate/expansion overlays.
+- **Smooth Trackpad Pinch-to-Zoom**: Proportional, cursor-centered zoom.
+- **127 tests passing** (35 new epistemics tests covering propagation, EIG, and vulnerability scanning).
+
 ## [1.1.0] - 2026-04-04
 ### Added
 - **Unified Node Detail Modal**: Full-bleed, debate-style page takeover for single-node inspection with live markdown editing. Click-to-edit, blur-to-save.
