@@ -284,6 +284,86 @@
                         <div id="debate-status" class="debate-status">Waiting...</div>
                     </div>
                 </div>
+                <!-- Unified Node Detail Modal -->
+                <div id="node-detail-overlay" class="node-detail-overlay hidden">
+                    <div class="node-detail-modal">
+                        <div class="ndm-header">
+                            <div class="ndm-header-left">
+                                <select id="ndm-type-select" class="ndm-type-badge">
+                                    <option value="claim">CLAIM</option>
+                                    <option value="evidence">EVIDENCE</option>
+                                    <option value="argument">ARGUMENT</option>
+                                    <option value="axiom">AXIOM</option>
+                                    <option value="question">QUESTION</option>
+                                    <option value="synthesis">SYNTHESIS</option>
+                                </select>
+                                <button id="ndm-star" class="ndm-action-btn" title="Star">☆</button>
+                                <button id="ndm-export" class="ndm-action-btn" title="Export MD">↓</button>
+                            </div>
+                            <div class="ndm-header-right">
+                                <span id="ndm-status" class="ndm-status"></span>
+                                <button id="ndm-close" class="ndm-close-btn">×</button>
+                            </div>
+                        </div>
+                        <div class="ndm-body">
+                            <input type="text" id="ndm-title" class="ndm-title" placeholder="Untitled" autocomplete="off">
+                            <textarea id="ndm-description" class="ndm-description" placeholder="Add a description..." rows="1"></textarea>
+                            <div class="ndm-divider"></div>
+                            <div class="ndm-content-section">
+                                <div class="ndm-content-toolbar">
+                                    <div class="ndm-content-actions">
+                                        <button id="ndm-undo" class="ndm-toolbar-btn" title="Undo">↩</button>
+                                        <button id="ndm-redo" class="ndm-toolbar-btn" title="Redo">↪</button>
+                                    </div>
+                                    <div class="ndm-content-meta">
+                                        <span id="ndm-history-label" class="ndm-meta-label">STATE 1/1</span>
+                                        <span id="ndm-word-count" class="ndm-meta-label">0 WORDS</span>
+                                        <button id="ndm-refresh" class="ndm-toolbar-btn" title="AI Refresh">↻ REFRESH</button>
+                                    </div>
+                                </div>
+                                <div class="ndm-editor-wrap">
+                                    <div id="ndm-content-rendered" class="ndm-content-rendered"></div>
+                                    <textarea id="ndm-content" class="ndm-content-editor hidden" placeholder="Start writing... Use [[ to link to other nodes"></textarea>
+                                    <div id="ndm-wiki-autocomplete" class="wiki-autocomplete hidden"></div>
+                                </div>
+                                <div id="ndm-content-status" class="ndm-content-status"></div>
+                            </div>
+                            <div class="ndm-sections">
+                                <details class="ndm-section" open>
+                                    <summary class="ndm-section-header">PROPERTIES <button id="ndm-add-prop" class="ndm-inline-btn">+ ADD</button></summary>
+                                    <div id="ndm-properties-list" class="ndm-section-body"></div>
+                                </details>
+                                <details class="ndm-section">
+                                    <summary class="ndm-section-header">CONNECTIONS</summary>
+                                    <div id="ndm-connections-list" class="ndm-section-body"></div>
+                                </details>
+                                <details class="ndm-section">
+                                    <summary class="ndm-section-header">BACKLINKS</summary>
+                                    <div id="ndm-backlinks-list" class="ndm-section-body"></div>
+                                </details>
+                                <details class="ndm-section">
+                                    <summary class="ndm-section-header">EPISTEMICS</summary>
+                                    <div id="ndm-epistemics" class="ndm-section-body"></div>
+                                </details>
+                                <details class="ndm-section">
+                                    <summary class="ndm-section-header">LAYER</summary>
+                                    <div class="ndm-section-body">
+                                        <select id="ndm-layer-select" class="ndm-select"></select>
+                                    </div>
+                                </details>
+                                <details class="ndm-section">
+                                    <summary class="ndm-section-header">NOTES</summary>
+                                    <div class="ndm-section-body">
+                                        <textarea id="ndm-notes" class="ndm-notes" rows="3" placeholder="Free-form notes..."></textarea>
+                                    </div>
+                                </details>
+                            </div>
+                        </div>
+                        <div class="ndm-footer">
+                            <button id="ndm-delete" class="ndm-delete-btn">DELETE NODE</button>
+                        </div>
+                    </div>
+                </div>
                 <!-- Page Viewer Overlay -->
                 <div id="page-view-overlay" class="page-view-overlay hidden">
                     <div class="page-view">
@@ -550,6 +630,8 @@
             <div id="graph-health" class="graph-health"></div>
         </div>
 
+
+
         <!-- Modal -->
         <div id="modal-overlay" class="modal-overlay hidden">
             <div class="modal">
@@ -569,6 +651,11 @@
     </div>
     <script src="src/model.js"></script>
     <script src="src/renderer.js"></script>
+    <script src="src/event-bus.js"></script>
+    <script src="src/markdown.js"></script>
+    <script src="src/ai.js"></script>
+    <script src="src/debate.js"></script>
+    <script src="src/node-detail-modal.js"></script>
     <script src="src/app.js"></script>
 </body>
 </html>

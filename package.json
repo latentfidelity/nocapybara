@@ -11,6 +11,7 @@
   "devDependencies": {
     "@jest/globals": "^30.3.0",
     "electron": "^33.0.0",
-    "jest": "^30.3.0"
+    "jest": "^30.3.0",
+    "jest-environment-jsdom": "^30.3.0"
   }
 }
