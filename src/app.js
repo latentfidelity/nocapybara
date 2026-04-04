@@ -2,49 +2,9 @@
 // NOCAPYBARA — Interaction & UI Controller
 // ============================================
 
-// Lightweight markdown → HTML renderer
+// Delegate to NocapMarkdown module
 function renderMarkdown(text) {
-    if (!text || typeof text !== 'string') return '';
-    let html = text
-        // Escape HTML
-        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-        // Code blocks (``` ... ```)
-        .replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>')
-        // Inline code
-        .replace(/`([^`]+)`/g, '<code>$1</code>')
-        // Headings
-        .replace(/^#### (.+)$/gm, '<h4>$1</h4>')
-        .replace(/^### (.+)$/gm, '<h3>$1</h3>')
-        .replace(/^## (.+)$/gm, '<h2>$1</h2>')
-        .replace(/^# (.+)$/gm, '<h1>$1</h1>')
-        // Blockquotes
-        .replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>')
-        // Bold + italic
-        .replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>')
-        // Bold
-        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-        // Italic
-        .replace(/\*(.+?)\*/g, '<em>$1</em>')
-        // Wiki link embeds ![[...]]
-        .replace(/!\[\[([^\]]+)\]\]/g, '<span class="md-embed" title="Embed: $1">📎 $1</span>')
-        // Wiki links [[...]]
-        .replace(/\[\[([^\]]+)\]\]/g, '<span class="md-wikilink" title="Link: $1">$1</span>')
-        // Tags #word
-        .replace(/(^|\s)#(\w[\w-]*)/g, '$1<span class="md-tag">#$2</span>')
-        // Horizontal rule
-        .replace(/^---$/gm, '<hr>')
-        // Unordered lists
-        .replace(/^- (.+)$/gm, '<li>$1</li>')
-        // Numbered lists
-        .replace(/^\d+\. (.+)$/gm, '<li>$1</li>')
-        // Line breaks
-        .replace(/\n/g, '<br>');
-    // Wrap consecutive <li> in <ul>
-    html = html.replace(/((?:<li>.*?<\/li><br>?)+)/g, '<ul>$1</ul>');
-    html = html.replace(/<ul>([\s\S]*?)<\/ul>/g, (match, inner) => '<ul>' + inner.replace(/<br>/g, '') + '</ul>');
-    // Merge consecutive blockquotes
-    html = html.replace(/<\/blockquote><br><blockquote>/g, '<br>');
-    return html;
+    return NocapMarkdown.renderInline(text);
 }
 
 class ReflectApp {
@@ -52,6 +12,11 @@ class ReflectApp {
         this.model = new NexusModel.WorldModel();
         this.canvas = document.getElementById('graph-canvas');
         this.renderer = new NexusRenderer.GraphRenderer(this.canvas, this.model);
+
+        // Modules
+        this.bus = window.NocapEventBus.bus;
+        this.ai = new window.NocapAI.AIEngine(this.model, this.renderer, this.bus);
+        this.debate = new window.NocapDebate.DebateEngine(this.model, this.renderer, this.bus);
 
         // State
         this.selectedNodes = new Set();
@@ -88,7 +53,7 @@ class ReflectApp {
             edges: savedOpts.edges !== false,
             edgeLabels: savedOpts.edgeLabels !== false,
             autoExpand: savedOpts.autoExpand !== false,
-            grounding: savedOpts.grounding === true,
+            grounding: savedOpts.grounding !== false,
             backlinks: savedOpts.backlinks !== false,
             outline: savedOpts.outline !== false,
             wordCount: savedOpts.wordCount !== false,
@@ -102,6 +67,11 @@ class ReflectApp {
         this._bindCanvas();
         this._bindUI();
         this._bindKeyboard();
+
+        // Initialize the unified node detail modal
+        if (window.NodeDetailModal) {
+            NodeDetailModal.init(this);
+        }
 
         // Auto-load
         this._loadFromStorage();
@@ -414,19 +384,7 @@ class ReflectApp {
     }
 
     _syncThoughtBarColor() {
-        const bar = document.querySelector('.thought-bar-inner');
-        if (!bar) return;
-        if (this.selectedNodes.size === 1) {
-            const node = this.model.nodes.get([...this.selectedNodes][0]);
-            if (node) {
-                const typeDef = NexusModel.NODE_TYPES[node.type] || NexusModel.NODE_TYPES.claim;
-                bar.style.borderColor = typeDef.color;
-                bar.style.boxShadow = `0 0 12px ${typeDef.glow}, 0 4px 24px rgba(0,0,0,0.4)`;
-                return;
-            }
-        }
-        bar.style.borderColor = '';
-        bar.style.boxShadow = '';
+        // No-op: highlight effect removed
     }
 
     _selectNode(node, addToSelection = false) {
@@ -436,7 +394,10 @@ class ReflectApp {
         if (this.selectedEdge) { this.selectedEdge.selected = false; this.selectedEdge = null; }
         this.renderer.markDirty();
         this._updateInspector();
-        this._openRightPanel();
+        // Don't auto-expand right panel for single nodes — unified modal handles that
+        if (!window.NodeDetailModal || this.selectedNodes.size > 1) {
+            this._openRightPanel();
+        }
         this._syncThoughtBarColor();
     }
 
@@ -446,7 +407,6 @@ class ReflectApp {
         this.selectedEdge = edge;
         this.renderer.markDirty();
         this._updateInspector();
-        this._openRightPanel();
     }
 
     // ======================== INSPECTOR ========================
@@ -465,12 +425,16 @@ class ReflectApp {
         if (this.selectedNodes.size === 1) {
             const nodeId = [...this.selectedNodes][0];
             const node = this.model.nodes.get(nodeId);
+            // Populate inspector silently but don't expand panel —
+            // the unified modal is the primary single-node view
             if (node) this._showNodeInspector(node);
         } else if (this.selectedNodes.size > 1) {
             multiPanel.classList.remove('hidden');
             document.getElementById('multi-count').textContent = this.selectedNodes.size;
+            this._openRightPanel();
         } else if (this.selectedEdge) {
             this._showEdgeInspector(this.selectedEdge);
+            this._openRightPanel();
         } else {
             emptyPanel.classList.remove('hidden');
         }
@@ -654,6 +618,12 @@ class ReflectApp {
     }
 
     _openInspector(node) {
+        // Use unified modal for single-node inspection
+        if (node && window.NodeDetailModal) {
+            NodeDetailModal.open(node);
+            return;
+        }
+        // Fallback to right panel for edge/multi-select
         this._openRightPanel();
         if (node) this._showNodeInspector(node);
     }
@@ -1435,9 +1405,15 @@ class ReflectApp {
         const node = this.model.addNode('claim', wp.x, wp.y, tempLabel);
         node.content = text;
 
+        // Close any open overlays so the new node is visible
+        if (window.NodeDetailModal && NodeDetailModal.isOpen()) NodeDetailModal.close();
+
         this._clearSelection();
         this._selectNode(node);
-        this._status('[THOUGHT CAPTURED]');
+        this._renderPagesTree();
+        this._updateStats();
+        this._updateEmptyState();
+        this.renderer.panTo(node.x, node.y);
 
         if (this.options.autoExpand && window.electronAPI && window.electronAPI.geminiRequest) {
             this._aiGenerateTitle(node, text);
@@ -1555,7 +1531,6 @@ Type definitions:
 
 Thought: "${text.replace(/"/g, '\\"')}"`;
 
-        this._status('[STREAMING...]');
         node._loading = true;
         node.source = { type: 'ai-expanded', model: this.selectedModel, timestamp: Date.now() };
         this.renderer.markDirty();
@@ -1563,25 +1538,30 @@ Thought: "${text.replace(/"/g, '\\"')}"`;
         let headerParsed = false;
         let contentStartIdx = -1;
 
-        // Route to the debate bottom drawer instead of center modal
+        // Show expansion in debate overlay
         const overlay = document.getElementById('debate-overlay');
         const transcript = document.getElementById('debate-transcript');
         const statusEl = document.getElementById('debate-status');
         const titleEl = document.getElementById('debate-modal-title');
         const roundIndicator = document.getElementById('debate-round-indicator');
-        
+
         overlay.classList.remove('hidden');
         transcript.innerHTML = '';
         titleEl.textContent = 'EXPANDING THOUGHT';
         roundIndicator.textContent = 'AWAITING RESPONSE';
-        statusEl.textContent = 'STREAMING...';
+        let _dotCount = 0;
+        const _thinkInterval = setInterval(() => {
+            _dotCount = (_dotCount % 3) + 1;
+            statusEl.textContent = 'Thinking' + '.'.repeat(_dotCount);
+        }, 400);
+        statusEl.textContent = 'Thinking.';
 
         document.getElementById('debate-modal-close').onclick = () => {
             overlay.classList.add('hidden');
         };
 
         const msg = document.createElement('div');
-        msg.className = 'debate-msg side-a'; // generic color side
+        msg.className = 'debate-msg side-a';
         msg.innerHTML = `
             <div class="debate-msg-header">\u2726 ${this.selectedModel}</div>
             <div class="debate-msg-body" id="write-modal-body"></div>
@@ -1657,10 +1637,12 @@ Thought: "${text.replace(/"/g, '\\"')}"`;
                 }
             }
 
-            // Stream content into textarea and write modal
-            if (headerParsed) {
-                const contentSoFar = fullResponse.slice(contentStartIdx).trimStart();
-                node.content = text + '\n\n— — —\n\n' + contentSoFar;
+            // Stream content into node and modal
+            const contentSoFar = headerParsed
+                ? fullResponse.slice(contentStartIdx).trimStart()
+                : fullResponse;
+            if (contentSoFar) {
+                node.content = text ? text + '\n\n\u2014 \u2014 \u2014\n\n' + contentSoFar : contentSoFar;
                 if (this.selectedNodes.has(node.id)) {
                     const el = document.getElementById('node-content');
                     if (el) {
@@ -1668,7 +1650,6 @@ Thought: "${text.replace(/"/g, '\\"')}"`;
                         el.scrollTop = el.scrollHeight;
                     }
                 }
-                // Update write modal
                 if (writeBody) {
                     writeBody.innerHTML = renderMarkdown(contentSoFar);
                     writeBody.scrollTop = writeBody.scrollHeight;
@@ -1681,8 +1662,8 @@ Thought: "${text.replace(/"/g, '\\"')}"`;
             this._pushContentState(node, node.content);
             this.renderer.markDirty();
             this._renderPagesTree();
-            this._status('[THOUGHT EXPANDED]', 'success');
             window.electronAPI.removeStreamListeners();
+            clearInterval(_thinkInterval);
             statusEl.textContent = 'COMPLETE \u2014 Click \u2715 to close';
         });
 
@@ -1691,6 +1672,7 @@ Thought: "${text.replace(/"/g, '\\"')}"`;
             this.renderer.markDirty();
             this._status('[AI ERROR: ' + err + ']', 'error');
             window.electronAPI.removeStreamListeners();
+            clearInterval(_thinkInterval);
             statusEl.textContent = 'ERROR \u2014 ' + err;
         });
 
@@ -1763,7 +1745,12 @@ Thought: "${text.replace(/"/g, '\\"')}"`;
 
         const statusEl = document.getElementById('content-status');
         const contentInput = document.getElementById('node-content');
-        statusEl.textContent = '[STREAMING...]';
+        let _refreshDots = 0;
+        const _refreshInterval = setInterval(() => {
+            _refreshDots = (_refreshDots % 3) + 1;
+            statusEl.textContent = 'Thinking' + '.'.repeat(_refreshDots);
+        }, 400);
+        statusEl.textContent = 'Thinking.';
         statusEl.className = 'content-status loading';
 
         const existingContent = node.content || '';
@@ -1801,6 +1788,7 @@ Write concise, substantive paragraphs. Plain text only, no markdown headers. Be 
         });
 
         window.electronAPI.onStreamDone(() => {
+            clearInterval(_refreshInterval);
             this._pushContentState(node, node.content);
             statusEl.textContent = '[REFRESHED]';
             statusEl.className = 'content-status';
@@ -1810,6 +1798,7 @@ Write concise, substantive paragraphs. Plain text only, no markdown headers. Be 
         });
 
         window.electronAPI.onStreamError((err) => {
+            clearInterval(_refreshInterval);
             statusEl.textContent = '[ERROR: ' + err + ']';
             statusEl.className = 'content-status';
             window.electronAPI.removeStreamListeners();
@@ -2099,15 +2088,7 @@ Write concise, substantive paragraphs. Plain text only, no markdown headers. Be 
     }
 
     _buildOutline(content) {
-        const headings = [];
-        content.split('\n').forEach((line, i) => {
-            const m3 = line.match(/^### (.+)/);
-            const m2 = line.match(/^## (.+)/);
-            const m1 = line.match(/^# (.+)/);
-            if (m1) headings.push({ level: 1, text: m1[1], line: i });
-            else if (m2) headings.push({ level: 2, text: m2[1], line: i });
-            else if (m3) headings.push({ level: 3, text: m3[1], line: i });
-        });
+        const headings = NocapMarkdown.extractHeadings(content);
 
         const outlineEl = document.getElementById('outline-items');
         if (headings.length === 0) {
@@ -2179,70 +2160,9 @@ Write concise, substantive paragraphs. Plain text only, no markdown headers. Be 
     }
 
     _renderMarkdown(text, depth = 0) {
-        // Escape HTML
-        let html = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-
-        // Embeds ![[Node Name]] — only if not too deep (prevent infinite recursion)
-        if (depth < 2) {
-            html = html.replace(/!\[\[([^\]]+)\]\]/g, (_, name) => {
-                const target = this._findNodeByLabel(name);
-                if (target && target.content) {
-                    const innerHtml = this._renderMarkdown(target.content, depth + 1);
-                    return `<div class="embed-block"><div class="embed-title">⊞ ${this._esc(name)}</div><div class="embed-content">${innerHtml}</div></div>`;
-                }
-                return `<div class="embed-block"><div class="embed-title">⊞ ${this._esc(name)} (not found)</div></div>`;
-            });
-        }
-
-        // Wiki links [[Node Name]]
-        html = html.replace(/\[\[([^\]]+)\]\]/g, (_, name) => {
-            const exists = this._findNodeByLabel(name);
-            return `<span class="wiki-link${exists ? '' : ' wiki-link-missing'}" data-target="${name}">[[${name}]]</span>`;
-        });
-
-        // Tags #tag
-        html = html.replace(/(^|\s)#([a-zA-Z0-9_-]+)/g, (_, pre, tag) => {
-            return `${pre}<span class="tag-link" data-tag="#${tag}">#${tag}</span>`;
-        });
-
-        // Headings
-        html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
-        html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
-        html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
-
-        // Bold and italic
-        html = html.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
-        html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-        html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
-
-        // Inline code
-        html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
-
-        // Horizontal rule
-        html = html.replace(/^---$/gm, '<hr>');
-
-        // Checkboxes
-        html = html.replace(/^- \[x\] (.+)$/gm, '<li class="checkbox checked">☑ $1</li>');
-        html = html.replace(/^- \[ \] (.+)$/gm, '<li class="checkbox">☐ $1</li>');
-
-        // Unordered lists
-        html = html.replace(/^- (.+)$/gm, '<li>$1</li>');
-        html = html.replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>');
-
-        // Line breaks (preserve double newlines as paragraphs)
-        html = html.replace(/\n\n/g, '</p><p>');
-        html = html.replace(/\n/g, '<br>');
-        html = '<p>' + html + '</p>';
-
-        // Clean up empty paragraphs
-        html = html.replace(/<p><\/p>/g, '');
-        html = html.replace(/<p>(<h[1-3]>)/g, '$1');
-        html = html.replace(/(<\/h[1-3]>)<\/p>/g, '$1');
-        html = html.replace(/<p>(<ul>)/g, '$1');
-        html = html.replace(/(<\/ul>)<\/p>/g, '$1');
-        html = html.replace(/<p>(<hr>)<\/p>/g, '$1');
-
-        return html;
+        const findNode = (label) => this._findNodeByLabel(label);
+        const renderContent = (node, d) => this._renderMarkdown(node.content, d);
+        return NocapMarkdown.renderPage(text, findNode, renderContent, depth);
     }
 
     _findNodeByLabel(label) {
@@ -2287,34 +2207,17 @@ Write concise, substantive paragraphs. Plain text only, no markdown headers. Be 
         };
     }
 
-    // ======================== DEBATE ENGINE ========================
+    // ======================== DEBATE ENGINE (delegated) ========================
 
     async _startDebate(topic, parentNode = null) {
-        if (this._debateRunning) {
+        if (this.debate.isRunning) {
             this._status('[DEBATE ALREADY RUNNING]');
             return;
         }
-        if (!window.electronAPI || !window.electronAPI.geminiRequest) {
-            this._status('[NO AI AVAILABLE]');
-            return;
-        }
-        if (this.debaters.length < 2) {
-            this._status('[NEED AT LEAST 2 DEBATERS]');
-            return;
-        }
 
-        this._debateRunning = true;
-        const wp = this.renderer.screenToWorld(this.renderer.viewW / 2, this.renderer.viewH / 2);
-        
-        // If branching, spawn below the parent
-        if (parentNode) {
-            wp.x = parentNode.x;
-            wp.y = parentNode.y + 200;
-        }
-
-        const rounds = parseInt(document.getElementById('debate-rounds')?.value || 3);
-        const mode = document.getElementById('debate-mode')?.value || 'standard';
-        const numDebaters = this.debaters.length;
+        // Sync debater config from UI
+        this.debate.debaters = this.debaters;
+        this.debate.judgeModel = this.debateJudgeModel;
 
         // Open the debate modal
         const overlay = document.getElementById('debate-overlay');
@@ -2323,308 +2226,49 @@ Write concise, substantive paragraphs. Plain text only, no markdown headers. Be 
         const roundIndicator = document.getElementById('debate-round-indicator');
         overlay.classList.remove('hidden');
         transcript.innerHTML = '';
+
+        const numDebaters = this.debaters.length;
+        const rounds = parseInt(document.getElementById('debate-rounds')?.value || 3);
+        const mode = document.getElementById('debate-mode')?.value || 'standard';
         const modeLabels = { standard: '\u2694 STANDARD', steelman: '\uD83D\uDEE1 STEEL MAN', redteam: '\uD83D\uDD34 RED TEAM', socratic: '\uD83D\u0018DB SOCRATIC' };
-        const debaterList = this.debaters.map(d => `${d.emoji}${d.letter}`).join(' vs ');
         document.getElementById('debate-modal-title').textContent = `${modeLabels[mode] || 'DEBATE'}: ${topic.slice(0, 50)}`;
         roundIndicator.textContent = `${numDebaters} DEBATERS \u00B7 ${rounds} ROUNDS`;
         statusEl.textContent = 'Initializing...';
 
-        document.getElementById('debate-modal-close').onclick = () => {
-            overlay.classList.add('hidden');
+        document.getElementById('debate-modal-close').onclick = () => overlay.classList.add('hidden');
+
+        const uiCallbacks = {
+            onTranscriptAdd: (letter, round, model, content, emoji) => {
+                const msg = document.createElement('div');
+                msg.className = `debate-msg side-${letter.toLowerCase()}`;
+                msg.innerHTML = `
+                    <div class="debate-msg-header">${emoji} MODEL ${letter} \u2014 ROUND ${round} \u00B7 ${model}</div>
+                    <div class="debate-msg-body">${renderMarkdown(String(content || ''))}</div>
+                `;
+                transcript.appendChild(msg);
+                transcript.scrollTop = transcript.scrollHeight;
+            },
+            onStatusUpdate: (text) => {
+                statusEl.innerHTML = `<span class="thinking-dots">${text}</span>`;
+            },
+            onRoundUpdate: (text) => {
+                roundIndicator.textContent = text;
+            }
         };
-
-        // Create the topic node
-        const truncatedTopic = topic.length > 50 ? topic.slice(0, 50) + '...' : topic;
-        const topicNode = this.model.addNode('claim', wp.x, wp.y - 120, truncatedTopic);
-        topicNode.content = topic; // Store full topic
-        if (parentNode) {
-            this.model.addEdge(parentNode.id, topicNode.id, 'branch debate');
-        }
-        topicNode.description = 'Debate topic';
-        const modelList = this.debaters.map(d => d.model);
-        topicNode.properties = {
-            mode: 'debate',
-            debaters: numDebaters.toString(),
-            models: modelList.join(', '),
-            rounds: rounds.toString()
-        };
-        topicNode._loading = true;
-        this.renderer.markDirty();
-
-        this._clearSelection();
-        this._selectNode(topicNode);
-
-        const history = [];
-
-        const addToTranscript = (letter, round, model, content, emoji) => {
-            const msg = document.createElement('div');
-            msg.className = `debate-msg side-${letter.toLowerCase()}`;
-            msg.innerHTML = `
-                <div class="debate-msg-header">${emoji} MODEL ${letter} \u2014 ROUND ${round} \u00B7 ${model}</div>
-                <div class="debate-msg-body">${renderMarkdown(String(content || ''))}</div>
-            `;
-            transcript.appendChild(msg);
-            transcript.scrollTop = transcript.scrollHeight;
-        };
-
-        // Judge opening statement
-            const judgeModel = this.debateJudgeModel || 'gemini-2.5-flash';
-            statusEl.innerHTML = `<span class="thinking-dots">⚖️ Judge mapping debate vector</span>`;
-            const openerPrompt = `You are the JUDGE of an epistemic debate. A new topic has just been introduced by the user:
-
-"${topic}"
-
-Analyze this topic and "open the floor" for the debaters.
-1. Identify the core epistemic conflicts embedded in this topic.
-2. Outline the specific rules of engagement or critical failure modes the debaters must avoid.
-3. Formally invite the debaters to present their opening models.
-Keep it strictly under 2 paragraphs. Use [[wiki links]] for key concepts. Format as Markdown.`;
-
-            const openerResult = await window.electronAPI.geminiRequest(openerPrompt, false, judgeModel);
-            const openerText = openerResult?.text || openerResult?.error || String(openerResult || '');
-
-            addToTranscript('JUDGE', 'OPEN', judgeModel, openerText, '&#x2696;&#xFE0F;');
-
-            const openerNode = this.model.addNode('synthesis', wp.x, wp.y - 40, 'Opening Statement');
-            openerNode.description = `⚖️ JUDGE: ${judgeModel} — Opening Statement`;
-            openerNode.content = openerText;
-            openerNode.properties = { side: 'JUDGE', round: 'OPEN', model: judgeModel, _debaterColor: '#8ED1D1' };
-            openerNode._debaterColor = '#8ED1D1';
-            openerNode.source = { type: 'debate-recap', model: judgeModel, timestamp: Date.now() };
-
-            this.model.addEdge(topicNode.id, openerNode.id, 'evaluates');
-            this.renderer.markDirty();
-
-            // All debaters should stem from the Opening Statement
-            const lastNodes = this.debaters.map(() => openerNode);
-            history.push({ role: 'JUDGE', content: openerText });
 
         try {
-            for (let round = 1; round <= rounds; round++) {
-                roundIndicator.textContent = `ROUND ${round}/${rounds}`;
-
-                for (let di = 0; di < numDebaters; di++) {
-                    const debater = this.debaters[di];
-                    statusEl.innerHTML = `<span class="thinking-dots">Model ${debater.letter} thinking</span>`;
-
-                    const prompt = this._buildDebatePrompt(topic, history, debater.letter, round, rounds, mode, numDebaters);
-                    const result = await window.electronAPI.geminiRequest(prompt, false, debater.model);
-                    const response = result?.text || result?.error || String(result || '');
-
-                    addToTranscript(debater.letter, round, debater.model, response, debater.emoji);
-
-                    // Position debater nodes horizontally across the current round's row
-                    const spacing = 220;
-                    const startX = wp.x - ((numDebaters - 1) * spacing) / 2;
-                    const nx = startX + di * spacing;
-                    const ny = wp.y + round * 140;
-
-                    // Derive label from content — first heading or first sentence
-                    let derivedLabel = `R${round} ${debater.letter}`;
-                    const headingMatch = response.match(/^#+\s+(.+)/m);
-                    if (headingMatch) {
-                        derivedLabel = headingMatch[1].slice(0, 40);
-                    } else {
-                        const firstSentence = response.split(/[.!?\n]/)[0]?.trim();
-                        if (firstSentence) derivedLabel = firstSentence.slice(0, 40);
-                    }
-                    if (derivedLabel.length >= 40) derivedLabel += '\u2026';
-
-                    const node = this.model.addNode('argument', nx, ny, derivedLabel);
-                    node.description = `${debater.emoji} ${debater.letter}: ${debater.model} \u2014 Round ${round}`;
-                    node.content = response;
-                    node.properties = { side: debater.letter, round: round.toString(), model: debater.model };
-                    node._debaterColor = debater.color;
-                    node.source = { type: 'debate-round', model: debater.model, timestamp: Date.now() };
-                    node.epistemicStatus = 'hypothesis';
-
-                    this.model.addEdge(lastNodes[di].id, node.id, round === 1 ? 'opens' : 'responds');
-
-                    // Cross-link to previous debater in this round
-                    if (di > 0) {
-                        const prevNode = lastNodes[di - 1];
-                        if (prevNode !== topicNode) {
-                            this.model.addEdge(prevNode.id, node.id, 'counters');
-                        }
-                    }
-
-                    lastNodes[di] = node;
-                    history.push({ role: debater.letter, round, content: response });
-                    this.renderer.markDirty();
-                }
-
-                // IMPROVEMENT: Impartial Judge Mid-Round Recap
-                if (round < rounds) {
-                    statusEl.innerHTML = `<span class="thinking-dots">JUDGE recapping Round ${round}</span>`;
-                    const judgeModel = this.debateJudgeModel || 'gemini-2.5-flash';
-                    const recapPrompt = this._buildRecapPrompt(topic, history, round, numDebaters);
-                    const recapResult = await window.electronAPI.geminiRequest(recapPrompt, false, judgeModel);
-                    const recapText = recapResult?.text || recapResult?.error || '';
-
-                    addToTranscript('JUDGE', round, judgeModel, recapText, '&#x2696;&#xFE0F;');
-
-                    const recapY = wp.y + round * 140 + 70;
-                    const recapNode = this.model.addNode('synthesis', wp.x, recapY, `R${round} Recap`);
-                    recapNode.description = `⚖️ JUDGE: ${judgeModel} — Round ${round} Recap`;
-                    recapNode.content = recapText;
-                    recapNode.properties = { side: 'JUDGE', round: round.toString(), model: judgeModel, _debaterColor: '#8ED1D1' };
-                    recapNode._debaterColor = '#8ED1D1';
-                    recapNode.source = { type: 'debate-recap', model: judgeModel, timestamp: Date.now() };
-
-                    // Connect all debater nodes from this round to the recap node
-                    lastNodes.forEach(n => this.model.addEdge(n.id, recapNode.id, 'reviewed by'));
-
-                    history.push({ role: 'JUDGE', round, content: recapText });
-                    this.renderer.markDirty();
-                }
-            }
-
-            // RESOLUTION
-            statusEl.innerHTML = '<span class="thinking-dots">Synthesizing resolution</span>';
-            roundIndicator.textContent = 'RESOLUTION';
-
-            const resolutionPrompt = this._buildResolutionPrompt(topic, history, numDebaters);
-            const judgeModel = this.debateJudgeModel || 'gemini-2.5-flash';
-            const resultRes = await window.electronAPI.geminiRequest(resolutionPrompt, false, judgeModel);
-            let rawResolution = resultRes?.text || resultRes?.error || String(resultRes || '');
-            
-            let resolutionTitle = `Resolution: ${topic.slice(0, 30)}`;
-            const titleMatch = rawResolution.match(/\*?\*?TITLE:\*?\*?\s*(.*)/im);
-            if (titleMatch) {
-                resolutionTitle = titleMatch[1].replace(/["']/g, '').trim();
-                rawResolution = rawResolution.replace(/\*?\*?TITLE:\*?\*?\s*(.*)\n*/im, '').trim();
-            }
-
-            const resMsg = document.createElement('div');
-            resMsg.className = 'debate-msg side-resolution';
-            resMsg.innerHTML = `
-                <div class="debate-msg-header">\u25C6 RESOLUTION \u00B7 ${judgeModel}</div>
-                <div class="debate-msg-body">${renderMarkdown(String(rawResolution || ''))}</div>
-            `;
-            transcript.appendChild(resMsg);
-            transcript.scrollTop = transcript.scrollHeight;
-
-            const resNode = this.model.addNode('synthesis', wp.x, wp.y + (rounds + 1) * 140 + 70, resolutionTitle);
-            resNode.description = `⚖️ JUDGE: ${judgeModel} \u2014 ${numDebaters} debaters, ${rounds} rounds`;
-            resNode.content = rawResolution;
-            resNode.properties = {
-                type: 'resolution',
-                models: modelList.join(', '),
-                judge: judgeModel,
-                rounds: rounds.toString(),
-                topic: topic
-            };
-            resNode._debaterColor = '#8ED1D1';
-            resNode.source = { type: 'debate-resolution', model: judgeModel, timestamp: Date.now() };
-            resNode.epistemicStatus = 'supported';
-            resNode.confidence = 0.7;
-
-            lastNodes.forEach(n => this.model.addEdge(n.id, resNode.id, 'synthesizes'));
-            this.model.addEdge(topicNode.id, resNode.id, 'resolves');
-
-            topicNode._loading = false;
-            topicNode.content = `# Debate: ${topic}\n\nDebaters: ${this.debaters.map(d => `${d.emoji} ${d.letter}: ${d.model}`).join(', ')}\nRounds: ${rounds}\n\nSee [[${resolutionTitle}]] for the final truth document.`;
-            this.renderer.markDirty();
-
+            this._clearSelection();
+            const { topicNode, resNode } = await this.debate.run(topic, parentNode, uiCallbacks);
+            this._selectNode(topicNode);
             statusEl.textContent = '\u2713 DEBATE RESOLVED \u2014 Click any node to inspect';
             this._status('[DEBATE RESOLVED]', 'success');
-            
-            // Pan camera to the final resolution node so it is clearly visible
             this._jumpToNode(resNode);
-
         } catch (err) {
-            topicNode._loading = false;
             statusEl.textContent = `\u2717 ERROR: ${err.message}`;
             this._status('[DEBATE ERROR: ' + err.message + ']');
             console.error('Debate error:', err);
         }
-
-        this._debateRunning = false;
     }
-
-    _buildDebatePrompt(topic, history, side, round, totalRounds, mode = 'standard', numDebaters = 2) {
-        const syntaxRef = `
-FORMATTING GUIDE \u2014 You are writing inside the NoCapybara Epistemic Engine. Use these mechanisms:
-- **Markdown**: Use # headings, **bold**, *italic*, > blockquotes, - bullet lists, 1. numbered lists
-- **Wiki Links**: Reference core concepts via [[Double Brackets]] \u2014 e.g. [[Consciousness]], [[Emergence]]. Use them ruthlessly for all semantic nodes.
-- **Tags**: Use #hashtags for categorization \u2014 e.g. #axiom #fallacy #open-question #empirical-data
-`;
-
-        const modeInstructions = {
-            standard: `\n\n**STANDARD MODE**: Debate rigorously. Do NOT be polite or sycophantic. Attack weak arguments without hesitation. If an opponent is right, concede the specific point but attack the surrounding framework if flawed.\n`,
-            steelman: `\n\n**STEEL MAN MODE**: Before presenting your counter-argument, you MUST construct the STRONGEST possible version of the other debaters' positions \u2014 stronger than they stated it. Repair their logical gaps for them. Only once you have a bulletproof Steel Man, dismantle it. Label this section "## Steel Man".\n`,
-            redteam: `\n\n**RED TEAM MODE**: You are an epistemic assassin. Your sole purpose is adversarial analysis. Find the weakest logical link, hidden assumption, or unstated dependency in the other arguments and attack it. Identify specific logical fallacies by name. Be ruthlessly analytical. Label weaknesses clearly.\n`,
-            socratic: `\n\n**SOCRATIC MODE**: If you are opening, establish strict definitional axioms. If you are responding, do NOT make declarative claims. Instead, ask penetrating, orthogonal questions that force other models to examine their implicit assumptions, confront edge cases, and resolve contradictions. Ask 3-5 precise questions.\n`
-        };
-
-        let context = `You are MODEL ${side} in a maximally truth-seeking ${numDebaters}-way debate engine. The topic is:\n\n"${topic}"\n\n`;
-        context += syntaxRef + '\n';
-        context += `**EPISTEMIC DIRECTIVE**: You are not here to compromise or seek artificial consensus. You are here to isolate objective truth. Demand falsifiability. Reject hallucinations. Point out formal logical fallacies. Base your arguments on empirical reality, formal logic, or explicit axioms.\n`;
-        context += modeInstructions[mode] || modeInstructions.standard;
-
-        if (history.length > 0) {
-            context += `\nPrevious arguments in the ledger:\n\n`;
-            history.forEach(h => {
-                context += `--- MODEL ${h.role} (Round ${h.round}) ---\n${h.content}\n\n`;
-            });
-        }
-
-        if (round === 1) {
-            context += `This is Round 1 of ${totalRounds}. Present your opening thesis. Define your axioms strictly. Be substantive, cite grounding logic, and stake out a clear, distinct position from other potential models. Use [[wiki links]] for every key concept. 3-5 paragraphs.`;
-        } else if (round === totalRounds) {
-            context += `This is the FINAL round (${round}/${totalRounds}). Drop everything but the hard truth. Discard your initial position if it was falsified. State the exact vector of convergence or the exact irreducible contradiction. Use [[wiki links]] heavily. 3-5 paragraphs.`;
-        } else {
-            context += `This is Round ${round} of ${totalRounds}. Dissect the latest arguments from the ledger. Acknowledge valid axioms, shatter logical inconsistencies, refine your topology. Use [[wiki links]]. Be rigorous, objective, and unflinching. 3-5 paragraphs.`;
-        }
-
-        return context;
-    }
-
-    _buildRecapPrompt(topic, history, round, numDebaters) {
-        let context = `You are NoCapybara's Impartial Judge in a ${numDebaters}-way debate engine. The topic is:\n\n"${topic}"\n\n`;
-        context += `We have just concluded Round ${round}. Here is the complete ledger of the debate so far:\n\n`;
-        history.forEach(h => {
-            if (h.role !== 'JUDGE') {
-                context += `--- MODEL ${h.role} (Round ${h.round}) ---\n${h.content}\n\n`;
-            }
-        });
-        context += `**JUDGE DIRECTIVE**: Recap the state of the board at the end of Round ${round}. \n1. Summarize the strongest surviving argument.\n2. Summarize the most devastating logical critique.\n3. State explicitly what the debaters MUST focus on answering or resolving in the next round.\n\nKeep it concise, objective, and unflinchingly analytical. Use [[wiki links]] for concepts. Max 2 paragraphs.`;
-        return context;
-    }
-
-    _buildResolutionPrompt(topic, history, numDebaters = 2) {
-        let prompt = `You are NoCapybara's apex synthesizer, an AI designed for pure epistemic convergence. ${numDebaters} AI models have debated the following topic:\n\n"${topic}"\n\nHere is the complete debate ledger:\n\n`;
-
-        history.forEach(h => {
-            prompt += `=== MODEL ${h.role} \u2014 ROUND ${h.round} ===\n${h.content}\n\n`;
-        });
-
-        prompt += `Now synthesize a FUNDAMENTAL TRUTH DOCUMENT. Strip away rhetoric, redundancy, and courtesy. Isolate the reality of the topic.
-
-IMPORTANT: Your VERY FIRST LINE must be exactly a five-word phrase summarizing the final conclusion, formatted strictly as: "TITLE: [Your five word conclusion here]"
-
-# Axiomatic Truths
-What is undeniably true based on the exchange? (What survived all Red Teaming?)
-
-# Falsified Claims
-What specific assertions were destroyed, and by what mechanism/fallacy?
-
-# The Synthesis
-The highest-order understanding of the topic that transcends the initial boundaries.
-
-# Irreducible Unknowns
-What remains unprovable or requires external empirical validation?
-
-FORMATTING REQUIREMENTS:
-- Use # markdown headings for each section
-- Use **bold** for emphasis and *italic* for nuance
-- Use [[Double Bracket Links]] for EVERY key concept \u2014 e.g. [[Consciousness]], [[Emergence]]
-- Use #tags for structural labeling \u2014 e.g. #axiom #falsified #synthesis
-- Do NOT hedge or use weak language ("It is important to consider...", "Both sides made valid points..."). State reality as it is.`;
-
-        return prompt;
-    }
-
     // ======================== DAILY NOTES ========================
 
     _createDailyNote() {
@@ -3311,11 +2955,6 @@ FORMATTING REQUIREMENTS:
         setTimeout(() => el.remove(), 2500);
     }
 
-    _esc(s) {
-        const d = document.createElement('div');
-        d.textContent = s;
-        return d.innerHTML;
-    }
 
     // ======================== PERSISTENCE ========================
 

@@ -2426,3 +2426,178 @@ html, body {
 .option-btn.danger:hover {
     background: rgba(215,25,33,0.1);
 }
+
+/* ============================================
+   UNIFIED NODE DETAIL MODAL
+   Matches debate modal pattern: full-bleed page takeover
+   ============================================ */
+
+
+.node-detail-overlay {
+    position: absolute;
+    inset: 0;
+    background: #000000;
+    z-index: 150;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.node-detail-overlay.hidden { display: none; }
+.node-detail-backdrop { display: none; }
+
+.node-detail-modal {
+    width: min(860px, 95%);
+    height: 85%;
+    background: var(--surface);
+    border: 1px solid var(--border-visible);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* Header */
+.ndm-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    padding: var(--space-md) var(--space-lg);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+}
+.ndm-header-left { display: flex; align-items: center; gap: var(--space-sm); flex: 1; }
+.ndm-header-right { display: flex; align-items: center; gap: var(--space-sm); }
+.ndm-type-badge {
+    background: transparent; color: var(--text-secondary); border: 1px solid var(--border-visible);
+    padding: 3px 10px; font-family: 'Space Mono', monospace; font-size: 10px; letter-spacing: 0.08em;
+    cursor: pointer; appearance: none; -webkit-appearance: none;
+}
+.ndm-type-badge:focus { border-color: var(--accent); outline: none; }
+.ndm-action-btn { background: transparent; border: none; color: var(--text-disabled); font-size: 14px; padding: 4px 8px; cursor: pointer; transition: color var(--speed-fast) var(--ease); }
+.ndm-action-btn:hover { color: var(--text-primary); }
+.ndm-close-btn { background: transparent; border: none; color: var(--text-disabled); font-size: 20px; padding: 2px 6px; cursor: pointer; transition: color var(--speed-fast) var(--ease); }
+.ndm-close-btn:hover { color: var(--text-primary); }
+.ndm-status { font-family: 'Space Mono', monospace; font-size: 10px; color: var(--text-disabled); letter-spacing: 0.04em; }
+
+/* Body — scrollable like .debate-transcript */
+.ndm-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--space-lg);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+}
+.ndm-title {
+    display: block; width: 100%; background: transparent; border: none;
+    color: var(--text-display); font-family: 'Space Grotesk', sans-serif;
+    font-size: 22px; font-weight: 500; line-height: 1.3; padding: 0; outline: none;
+}
+.ndm-title::placeholder { color: var(--text-disabled); }
+.ndm-description {
+    display: block; width: 100%; background: transparent; border: none;
+    color: var(--text-secondary); font-family: 'Space Grotesk', sans-serif;
+    font-size: 13px; line-height: 1.5; padding: 0; resize: none; outline: none;
+    min-height: 18px; field-sizing: content;
+}
+.ndm-description::placeholder { color: var(--text-disabled); }
+.ndm-divider { height: 1px; background: var(--border); }
+
+/* Content section */
+.ndm-content-section { flex: 1; display: flex; flex-direction: column; }
+.ndm-content-toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-sm); }
+.ndm-content-actions, .ndm-content-meta { display: flex; align-items: center; gap: 2px; }
+.ndm-toolbar-btn {
+    background: transparent; border: 1px solid var(--border); color: var(--text-disabled);
+    font-family: 'Space Mono', monospace; font-size: 10px; letter-spacing: 0.04em;
+    padding: 3px 8px; cursor: pointer; transition: all var(--speed-fast) var(--ease);
+}
+.ndm-toolbar-btn:hover { color: var(--text-primary); border-color: var(--border-visible); }
+.ndm-meta-label { font-family: 'Space Mono', monospace; font-size: 9px; color: var(--text-disabled); letter-spacing: 0.06em; padding: 0 6px; }
+.ndm-editor-wrap { position: relative; flex: 1; display: flex; flex-direction: column; }
+
+/* Editor (hidden by default) */
+.ndm-content-editor {
+    display: block; width: 100%; flex: 1; min-height: 120px;
+    background: var(--surface); border: 1px solid var(--border);
+    color: var(--text-primary); font-family: 'Space Mono', monospace;
+    font-size: 12px; line-height: 1.7; padding: 12px var(--space-md);
+    resize: none; outline: none;
+}
+.ndm-content-editor:focus { border-color: var(--border-visible); }
+.ndm-content-editor::placeholder { color: var(--text-disabled); }
+.ndm-content-editor.hidden { display: none; }
+
+/* Rendered markdown — primary content display */
+.ndm-content-rendered {
+    flex: 1; min-height: 80px; padding: var(--space-md);
+    color: var(--text-secondary); font-family: 'Space Grotesk', sans-serif;
+    font-size: 13px; line-height: 1.7; cursor: text;
+    animation: debateFadeIn 0.3s ease;
+}
+.ndm-content-rendered:hover { background: rgba(255,255,255,0.01); }
+.ndm-content-rendered.hidden { display: none; }
+.ndm-content-rendered.empty-content { color: var(--text-disabled); font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: 0.04em; }
+
+/* Markdown typography */
+.ndm-content-rendered h1 { font-size: 18px; font-weight: 600; color: var(--text-display); margin: 16px 0 8px; }
+.ndm-content-rendered h2 { font-size: 15px; font-weight: 600; color: var(--text-display); margin: 14px 0 6px; }
+.ndm-content-rendered h3 { font-size: 13px; font-weight: 600; color: var(--text-display); margin: 12px 0 4px; }
+.ndm-content-rendered p { margin: 8px 0; }
+.ndm-content-rendered strong { color: var(--text-display); }
+.ndm-content-rendered em { color: var(--text-secondary); font-style: italic; }
+.ndm-content-rendered code { background: var(--surface-raised); padding: 2px 5px; font-family: 'Space Mono', monospace; font-size: 11px; color: var(--accent); }
+.ndm-content-rendered pre { background: var(--surface-raised); border: 1px solid var(--border); padding: 12px; overflow-x: auto; margin: 8px 0; }
+.ndm-content-rendered pre code { background: transparent; padding: 0; }
+.ndm-content-rendered blockquote { border-left: 2px solid var(--border-visible); padding-left: 12px; color: var(--text-secondary); margin: 8px 0; }
+.ndm-content-rendered ul, .ndm-content-rendered ol { padding-left: 20px; margin: 6px 0; }
+.ndm-content-rendered li { margin: 2px 0; }
+.ndm-content-rendered hr { border: none; border-top: 1px solid var(--border); margin: 12px 0; }
+.ndm-content-rendered .wiki-link { color: var(--accent); cursor: pointer; }
+.ndm-content-rendered .wiki-link:hover { text-decoration: underline; }
+.ndm-content-rendered .wiki-link-missing { color: var(--text-disabled); text-decoration: underline dashed; }
+.ndm-content-rendered .tag-link { color: var(--accent); font-family: 'Space Mono', monospace; font-size: 11px; }
+.ndm-content-rendered .embed-block { border: 1px solid var(--border); padding: 10px; margin: 8px 0; }
+.ndm-content-rendered .embed-title { font-family: 'Space Mono', monospace; font-size: 10px; color: var(--text-disabled); letter-spacing: 0.06em; margin-bottom: 6px; }
+
+.ndm-content-status { font-family: 'Space Mono', monospace; font-size: 10px; color: var(--text-disabled); padding: 4px 0; min-height: 16px; }
+
+/* Collapsible sections */
+.ndm-section { border-top: 1px solid var(--border); }
+.ndm-section-header {
+    display: flex; align-items: center; justify-content: space-between; padding: 10px 0;
+    font-family: 'Space Mono', monospace; font-size: 10px; color: var(--text-disabled);
+    letter-spacing: 0.08em; cursor: pointer; user-select: none; list-style: none;
+}
+.ndm-section-header::-webkit-details-marker { display: none; }
+.ndm-section-header::before { content: '▸'; margin-right: 8px; font-size: 9px; transition: transform var(--speed-fast) var(--ease); }
+.ndm-section[open] > .ndm-section-header::before { transform: rotate(90deg); }
+.ndm-section-body { padding: 0 0 12px 0; }
+.ndm-inline-btn { background: transparent; border: none; color: var(--text-disabled); font-family: 'Space Mono', monospace; font-size: 10px; cursor: pointer; padding: 2px 6px; }
+.ndm-inline-btn:hover { color: var(--accent); }
+.ndm-select { width: 100%; background: var(--surface); border: 1px solid var(--border); color: var(--text-primary); font-family: 'Space Grotesk', sans-serif; font-size: 12px; padding: 6px 8px; outline: none; }
+.ndm-notes { width: 100%; background: var(--surface); border: 1px solid var(--border); color: var(--text-secondary); font-family: 'Space Mono', monospace; font-size: 12px; line-height: 1.6; padding: 8px 10px; resize: vertical; outline: none; }
+.ndm-notes:focus { border-color: var(--border-visible); outline: none; }
+
+/* Footer */
+.ndm-footer { padding: 10px var(--space-lg); border-top: 1px solid var(--border); display: flex; justify-content: flex-end; flex-shrink: 0; }
+.ndm-delete-btn { background: transparent; border: 1px solid var(--border); color: var(--text-disabled); font-family: 'Space Mono', monospace; font-size: 10px; letter-spacing: 0.06em; padding: 5px 12px; cursor: pointer; transition: all var(--speed-fast) var(--ease); }
+.ndm-delete-btn:hover { border-color: #D71921; color: #D71921; }
+
+/* Property rows */
+.ndm-section-body .prop-row { display: flex; gap: var(--space-sm); margin-bottom: 4px; align-items: center; }
+.ndm-section-body .prop-row input { flex: 1; background: var(--surface); border: 1px solid var(--border); color: var(--text-primary); font-family: 'Space Mono', monospace; font-size: 11px; padding: 4px 8px; outline: none; }
+.ndm-section-body .prop-row input:focus { border-color: var(--border-visible); }
+.ndm-section-body .prop-row .btn-remove-prop { background: transparent; border: none; color: var(--text-disabled); cursor: pointer; font-size: 14px; padding: 2px 6px; }
+.ndm-section-body .prop-row .btn-remove-prop:hover { color: #D71921; }
+
+/* Connection & backlink items */
+.ndm-section-body .connection-item, .ndm-section-body .backlink-item { padding: 5px var(--space-sm); cursor: pointer; font-family: 'Space Grotesk', sans-serif; font-size: 12px; color: var(--text-secondary); transition: color var(--speed-fast) var(--ease); }
+.ndm-section-body .connection-item:hover, .ndm-section-body .backlink-item:hover { color: var(--text-primary); }
+
+/* Epistemic controls */
+.ndm-section-body .epistemic-row { margin-bottom: var(--space-sm); }
+.ndm-section-body .epistemic-label { display: block; font-family: 'Space Mono', monospace; font-size: 9px; letter-spacing: 0.08em; color: var(--text-disabled); margin-bottom: 4px; }
+.ndm-section-body .epistemic-label span { float: right; color: var(--text-secondary); font-family: 'Space Grotesk', sans-serif; font-size: 11px; }
+.ndm-section-body .inspector-select { width: 100%; background: var(--surface); border: 1px solid var(--border); color: var(--text-primary); font-family: 'Space Grotesk', sans-serif; font-size: 12px; padding: 4px 8px; }
+.ndm-section-body .inspector-textarea { width: 100%; background: var(--surface); border: 1px solid var(--border); color: var(--text-secondary); font-family: 'Space Grotesk', sans-serif; font-size: 12px; padding: 6px 8px; resize: vertical; outline: none; }
+.ndm-section-body .inspector-textarea:focus { border-color: var(--border-visible); }
