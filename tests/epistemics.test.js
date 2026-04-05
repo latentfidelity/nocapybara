@@ -402,4 +402,46 @@ describe('Epistemics', () => {
             expect(vulns.find(v => v.nodeId === n.id)).toBeUndefined();
         });
     });
+
+    // ======================== SOURCE RELIABILITY ========================
+
+    describe('Source Reliability', () => {
+        test('unknown source returns 0.5', () => {
+            expect(Epistemics.getSourceReliability('unknown-model')).toBe(0.5);
+        });
+
+        test('reliable source trends toward 1', () => {
+            Epistemics.recordSourceOutcome('good-model', 'established');
+            Epistemics.recordSourceOutcome('good-model', 'established');
+            Epistemics.recordSourceOutcome('good-model', 'established');
+            const r = Epistemics.getSourceReliability('good-model');
+            expect(r).toBeGreaterThan(0.7);
+        });
+
+        test('unreliable source trends toward 0', () => {
+            Epistemics.recordSourceOutcome('bad-model', 'falsified');
+            Epistemics.recordSourceOutcome('bad-model', 'falsified');
+            Epistemics.recordSourceOutcome('bad-model', 'falsified');
+            const r = Epistemics.getSourceReliability('bad-model');
+            expect(r).toBeLessThan(0.3);
+        });
+
+        test('weightBySource dampens unreliable sources', () => {
+            Epistemics.recordSourceOutcome('flaky', 'falsified');
+            Epistemics.recordSourceOutcome('flaky', 'falsified');
+            const weighted = Epistemics.weightBySource(0.9, 'flaky');
+            // An unreliable source's high confidence should be pulled toward 0.5
+            expect(weighted).toBeLessThan(0.9);
+            expect(weighted).toBeGreaterThan(0.5);
+        });
+
+        test('getAllSourceReliability lists all sources', () => {
+            Epistemics.recordSourceOutcome('modelA', 'established');
+            Epistemics.recordSourceOutcome('modelB', 'falsified');
+            const all = Epistemics.getAllSourceReliability();
+            expect(all.length).toBeGreaterThanOrEqual(2);
+            // Should be sorted by reliability descending
+            expect(all[0].reliability).toBeGreaterThanOrEqual(all[all.length - 1].reliability);
+        });
+    });
 });

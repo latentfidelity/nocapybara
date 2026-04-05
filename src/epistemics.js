@@ -57,6 +57,7 @@ const Epistemics = (() => {
     function clearAllHistory() {
         _histories.clear();
         _resolutions.length = 0;
+        _sourceReliability.clear();
     }
 
     // ======================== BELIEF PATHOLOGIES ========================
@@ -325,9 +326,14 @@ const Epistemics = (() => {
         _histories.forEach((entries, nodeId) => {
             historyData[nodeId] = entries;
         });
+        const sourceData = {};
+        _sourceReliability.forEach((stats, source) => {
+            sourceData[source] = { ...stats };
+        });
         return {
             histories: historyData,
-            resolutions: _resolutions.map(r => ({ ...r }))
+            resolutions: _resolutions.map(r => ({ ...r })),
+            sourceReliability: sourceData
         };
     }
 
@@ -342,6 +348,75 @@ const Epistemics = (() => {
         if (data?.resolutions) {
             _resolutions.push(...data.resolutions);
         }
+        if (data?.sourceReliability) {
+            Object.entries(data.sourceReliability).forEach(([source, stats]) => {
+                _sourceReliability.set(source, stats);
+            });
+        }
+    }
+
+    // ======================== SOURCE RELIABILITY ========================
+    // Track the reliability of each AI model/source based on track record.
+
+    const _sourceReliability = new Map(); // source → {established: n, falsified: n, total: n}
+
+    /**
+     * Record an outcome for a source. Called when a node is resolved.
+     * @param {string} source - Model name or source identifier
+     * @param {'established'|'falsified'|'contested'} outcome
+     */
+    function recordSourceOutcome(source, outcome) {
+        if (!source) return;
+        if (!_sourceReliability.has(source)) {
+            _sourceReliability.set(source, { established: 0, falsified: 0, total: 0 });
+        }
+        const stats = _sourceReliability.get(source);
+        stats.total++;
+        if (outcome === 'established') stats.established++;
+        else if (outcome === 'falsified') stats.falsified++;
+    }
+
+    /**
+     * Get the reliability score for a source [0, 1].
+     * 1 = all claims established, 0 = all claims falsified.
+     * Returns 0.5 (neutral) for unknown sources.
+     * @param {string} source
+     * @returns {number}
+     */
+    function getSourceReliability(source) {
+        const stats = _sourceReliability.get(source);
+        if (!stats || stats.total === 0) return 0.5;
+        // Bayesian smoothing: add 1 pseudo-count for each outcome
+        return (stats.established + 1) / (stats.total + 2);
+    }
+
+    /**
+     * Get all source reliability scores, sorted by reliability.
+     * @returns {Array<{source: string, reliability: number, established: number, falsified: number, total: number}>}
+     */
+    function getAllSourceReliability() {
+        const results = [];
+        _sourceReliability.forEach((stats, source) => {
+            results.push({
+                source,
+                reliability: Math.round(getSourceReliability(source) * 1000) / 1000,
+                ...stats
+            });
+        });
+        return results.sort((a, b) => b.reliability - a.reliability);
+    }
+
+    /**
+     * Weight a confidence value by source reliability.
+     * High-reliability sources have less dampening; low-reliability sources get pulled toward 0.5.
+     * @param {number} confidence - Raw confidence [0, 1]
+     * @param {string} source - Source identifier
+     * @returns {number} - Weighted confidence [0, 1]
+     */
+    function weightBySource(confidence, source) {
+        const reliability = getSourceReliability(source);
+        // Interpolate between 0.5 (no trust) and raw confidence (full trust)
+        return 0.5 + (confidence - 0.5) * reliability;
     }
 
     // ======================== BELIEF PROPAGATION ========================
@@ -629,6 +704,12 @@ const Epistemics = (() => {
         // Vulnerability / Red-Team
         scanVulnerabilities,
         getMostVulnerable,
+
+        // Source Reliability
+        recordSourceOutcome,
+        getSourceReliability,
+        getAllSourceReliability,
+        weightBySource,
 
         // Serialization
         toJSON,
