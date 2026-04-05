@@ -3039,6 +3039,15 @@ Write concise, substantive paragraphs. Plain text only, no markdown headers. Be 
     _saveToStorage() {
         try {
             localStorage.setItem('nocapybara-model', JSON.stringify(this.model.toJSON()));
+            // Save Cortex snapshot for delta computation on next session
+            if (window.Cortex) {
+                Cortex.saveSnapshot(Cortex.captureSnapshot(this.model));
+                localStorage.setItem('nocapybara-cortex', JSON.stringify(Cortex.toJSON()));
+            }
+            // Save epistemics state
+            if (window.Epistemics) {
+                localStorage.setItem('nocapybara-epistemics', JSON.stringify(Epistemics.toJSON()));
+            }
         } catch (e) { /* quota exceeded */ }
     }
 
@@ -3048,6 +3057,16 @@ Write concise, substantive paragraphs. Plain text only, no markdown headers. Be 
             if (data) {
                 this.model.fromJSON(JSON.parse(data));
                 this.renderer.fitView();
+            }
+            // Restore epistemics state
+            if (window.Epistemics) {
+                const epData = localStorage.getItem('nocapybara-epistemics');
+                if (epData) Epistemics.fromJSON(JSON.parse(epData));
+            }
+            // Restore Cortex snapshot
+            if (window.Cortex) {
+                const cxData = localStorage.getItem('nocapybara-cortex');
+                if (cxData) Cortex.fromJSON(JSON.parse(cxData));
             }
         } catch (e) { /* corrupted */ }
     }
