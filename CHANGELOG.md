@@ -1,5 +1,22 @@
 # Changelog
 
+## [2.0.0] - 2026-04-04
+### Added — Exocortex Engine Complete
+- **Cognitive Compression Engine** (`cortex.js`): BCI-ready output layer with three compression modes:
+  - **Belief Deltas**: Track what changed between sessions (strengthened, weakened, new, removed nodes)
+  - **Attention Queue**: Prioritized feed combining EIG, vulnerability, contradictions, and redundancies
+  - **Summarization Hierarchy**: Full graph → themed clusters with confidence stats and health score
+- **`digest()`**: Single function producing a complete cognitive update package with headline, deltas, attention items, summary, calibration, and source leaderboard
+- **State Persistence**: Epistemics state and Cortex snapshots now persist across sessions via localStorage
+- **175 tests passing** across 9 test suites (17 new cortex tests)
+
+## [1.3.0] - 2026-04-04
+### Added
+- **Formal Logic Layer** (`logic.js`): Propositional logic per node. Graph-wide contradiction detection via adjacency-aware consistency checking. Auto-suggest propositions from node labels.
+- **Source Reliability Tracking**: Bayesian-smoothed reliability scores per AI model. `weightBySource()` dampens unreliable sources toward neutral. Full serialization.
+- **Semantic Similarity Engine** (`semantics.js`): TF-IDF vectorization with cosine similarity. Redundancy detection, single-linkage clustering, pairwise similarity matrix.
+- **158 tests passing** (31 new across logic, semantics, and source reliability)
+
 ## [1.2.0] - 2026-04-04
 ### Added
 - **Epistemic Loss Function**: Live `L: x.xxx` score in the status bar. Computed as `L = λ₁·consistency + λ₂·grounding + λ₃·entropy + λ₄·staleness` across the full graph. Color-coded green/yellow/red.
