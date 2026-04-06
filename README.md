@@ -60,13 +60,11 @@ npm install
 
 ## Setup API Keys
 
-Create a `config.local.json` file in the project root (this file is `.gitignored`):
+Create a `.env` file in the project root (this file is `.gitignored`):
 
-```json
-{
-  "gemini_api_key": "your-gemini-key",
-  "openrouter_api_key": "your-openrouter-key"
-}
+```env
+GEMINI_API_KEY=your-gemini-key
+OPENROUTER_API_KEY=your-openrouter-key
 ```
 
 ## Running

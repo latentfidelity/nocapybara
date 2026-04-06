@@ -1,15 +1,14 @@
 const { app, BrowserWindow, Menu, dialog, ipcMain } = require('electron');
 const path = require('path');
 const fs = require('fs');
+require('dotenv').config();
 
-// Load local config
-let config = {};
-try {
-    const configPath = path.join(__dirname, 'config.local.json');
-    if (fs.existsSync(configPath)) {
-        config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
-    }
-} catch (e) { console.warn('No config.local.json found'); }
+// Load config from environment variables
+const config = {
+    gemini_api_key: process.env.GEMINI_API_KEY || '',
+    openrouter_api_key: process.env.OPENROUTER_API_KEY || '',
+    openai_api_key: process.env.OPENAI_API_KEY || ''
+};
 
 let mainWindow;
 
@@ -217,7 +216,7 @@ ipcMain.handle('gemini-request', async (event, prompt, useGrounding = false, mod
 // OpenRouter handler
 async function handleOpenRouterRequest(prompt, model) {
     const apiKey = config.openrouter_api_key;
-    if (!apiKey) return { error: 'No OpenRouter API key configured. Add "openrouter_api_key" to config.local.json' };
+    if (!apiKey) return { error: 'No OpenRouter API key configured. Add OPENROUTER_API_KEY to .env' };
 
     try {
         const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
